@@ -1,0 +1,282 @@
+﻿@page "/users"
+@using Enterprise.Security.Client.Core.Common
+@using Enterprise.Security.Client.Core.DTOs.Users
+@using Enterprise.Security.Client.Core.Interfaces
+@using static System.Net.WebRequestMethods
+@inject IUserService UserService
+@inject IJSRuntime JS
+
+@attribute [Authorize(Policy = Permissions.Users.View)]
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Gestión de Usuarios</h2>
+        @* Botón solo visible si tienes permiso de CREAR (opcional por ahora) *@
+        <AuthorizeView Policy="@Permissions.Users.Create">
+            <Authorized>
+                <button class="btn btn-primary" @onclick="OpenCreateModal">
+                    <i class="bi bi-plus-lg"></i> Nuevo Usuario
+                </button>
+            </Authorized>
+        </AuthorizeView>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2">Cargando directorio...</p>
+        </div>
+    }
+    else if (users == null || !users.Any())
+    {
+        <div class="alert alert-info">
+            No se encontraron usuarios registrados.
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped align-middle mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Nombre Completo</th>
+                                <th>Email</th>
+                                <th class="text-center">Estado</th>
+                                @* Columna de Acciones protegida *@
+                                <AuthorizeView Policy="@Permissions.Users.Edit">
+                                    <Authorized>
+                                        <th class="text-center">Acciones</th>
+                                    </Authorized>
+                                </AuthorizeView>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var user in users)
+                            {
+                                <tr>
+                                    <td class="fw-bold">@user.UserName</td>
+                                    <td>@user.FullName</td>
+                                    <td>@user.Email</td>
+                                    <td class="text-center">
+                                        @if (user.IsActive)
+                                        {
+                                            <span class="badge bg-success rounded-pill">Activo</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger rounded-pill">Inactivo</span>
+                                        }
+                                    </td>
+
+                                    @* Botones protegidos: Solo el Manager/Admin los ve *@
+                                    <AuthorizeView Policy="@Permissions.Users.Edit">
+                                        <Authorized>
+                                            <td class="text-center">
+                                                @if (user.IsActive)
+                                                {
+                                                    <button class="btn btn-outline-danger btn-sm"
+                                                            @onclick="() => ToggleUserStatus(user)"
+                                                            title="Desactivar usuario">
+                                                        Desactivar
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-outline-success btn-sm"
+                                                            @onclick="() => ToggleUserStatus(user)"
+                                                            title="Activar usuario">
+                                                        Activar
+                                                    </button>
+                                                }
+                                            </td>
+                                        </Authorized>
+                                    </AuthorizeView>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    @* ... Tabla de usuarios arriba ... *@
+
+                    @* MODAL DE CREACIÓN *@
+                    @if (showCreateModal)
+                    {
+                        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Registrar Nuevo Usuario</h5>
+                                        <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        @if (!string.IsNullOrEmpty(createError))
+                                        {
+                                            <div class="alert alert-danger">@createError</div>
+                                        }
+
+                                        <EditForm Model="@newUserModel" OnValidSubmit="HandleCreateUser">
+                                            <DataAnnotationsValidator />
+
+                                            <div class="mb-3">
+                                                <label>Nombre</label>
+                                                <InputText class="form-control" @bind-Value="newUserModel.FirstName" />
+                                                <ValidationMessage For="@(() => newUserModel.FirstName)" />
+                                            </div>
+                                            <div class="mb-3">
+                                                <label>Apellido</label>
+                                                <InputText class="form-control" @bind-Value="newUserModel.LastName" />
+                                                <ValidationMessage For="@(() => newUserModel.LastName)" />
+                                            </div>
+                                            <div class="mb-3">
+                                                <label>Email</label>
+                                                <InputText class="form-control" @bind-Value="newUserModel.Email" />
+                                                <ValidationMessage For="@(() => newUserModel.Email)" />
+                                            </div>
+                                            <div class="mb-3">
+                                                <label>Usuario (Login)</label>
+                                                <InputText class="form-control" @bind-Value="newUserModel.UserName" />
+                                                <ValidationMessage For="@(() => newUserModel.UserName)" />
+                                            </div>
+                                            <div class="mb-3">
+                                                <label>Contraseña Temporal</label>
+                                                <InputText type="password" class="form-control" @bind-Value="newUserModel.Password" />
+                                                <ValidationMessage For="@(() => newUserModel.Password)" />
+                                            </div>
+                                            <div class="mb-3">
+                                                <label>Confirmar Contraseña</label>
+                                                <InputText type="password" class="form-control" @bind-Value="newUserModel.ConfirmPassword" />
+                                                <ValidationMessage For="@(() => newUserModel.ConfirmPassword)" />
+                                            </div>
+
+                                            <div class="modal-footer px-0 pb-0">
+                                                <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancelar</button>
+                                                <button type="submit" class="btn btn-primary" disabled="@isCreating">
+                                                    @(isCreating ? "Guardando..." : "Guardar Usuario")
+                                                </button>
+                                            </div>
+                                        </EditForm>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<UserResponseDto>? users;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        isLoading = true;
+        try
+        {
+            users = await UserService.GetAllAsync();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ToggleUserStatus(UserResponseDto user)
+    {
+        string resultMessage;
+        bool isSuccess = false;
+
+        // Confirmación simple con JS nativo
+        bool confirmed = await JS.InvokeAsync<bool>("confirm",
+            $"¿Estás seguro que deseas {(user.IsActive ? "desactivar" : "activar")} a {user.UserName}?");
+
+        if (!confirmed) return;
+
+        if (user.IsActive)
+        {
+            resultMessage = await UserService.DeactivateAsync(user.Id);
+            if (string.IsNullOrEmpty(resultMessage)) isSuccess = true;
+        }
+        else
+        {
+            resultMessage = await UserService.ActivateAsync(user.Id);
+            if (string.IsNullOrEmpty(resultMessage)) isSuccess = true;
+        }
+
+        if (isSuccess)
+        {
+            // Actualizamos la lista para reflejar el cambio
+            await LoadUsers();
+            // Opcional: Podrías actualizar solo el objeto en memoria para evitar otra llamada a la API
+            // user.IsActive = !user.IsActive;
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", $"Error: {resultMessage}");
+        }
+    }
+
+    // Variables para el Modal
+    private bool showCreateModal = false;
+    private CreateUserDto newUserModel = new();
+    private string? createError;
+    private bool isCreating = false;
+
+    // Método para abrir el modal
+    private void OpenCreateModal()
+    {
+        // Al cambiar el tipo arriba, el compilador sabrá que aquí debe crear un CreateUserDto
+        newUserModel = new CreateUserDto(); 
+        createError = null;
+        showCreateModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showCreateModal = false;
+    }
+
+    private async Task HandleCreateUser()
+    {
+        isCreating = true;
+        createError = null;
+
+        try
+        {
+            // Llamamos a TU servicio, no al Http directo
+            var errorMessage = await UserService.CreateAsync(newUserModel);
+
+            if (string.IsNullOrEmpty(errorMessage))
+            {
+                showCreateModal = false;
+                await LoadUsers(); // Recargar tabla
+            }
+            else
+            {
+                createError = errorMessage;
+            }
+        }
+        catch (Exception ex)
+        {
+            createError = ex.Message;
+        }
+        finally
+        {
+            isCreating = false;
+        }
+    }
+}

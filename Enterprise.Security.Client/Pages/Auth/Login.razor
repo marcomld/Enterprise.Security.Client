@@ -1,0 +1,117 @@
+﻿@page "/login"
+@using Enterprise.Security.Client.Core.DTOs.Auth
+@using Enterprise.Security.Client.Core.Common
+@using Enterprise.Security.Client.Infrastructure.Auth
+@using Microsoft.AspNetCore.Components.Authorization
+@*@layout Layout.LoginLayout
+@* 👆 (Opcional) Si quisieras un layout limpio sin menús laterales para el login *@
+
+@inject HttpClient Http
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow">
+                <div class="card-body">
+                    <h3 class="text-center mb-4">Iniciar Sesión</h3>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @errorMessage
+                        </div>
+                    }
+
+                    <EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <InputText id="email" class="form-control" @bind-Value="loginModel.Email" placeholder="admin@enterprise.com" />
+                            <ValidationMessage For="@(() => loginModel.Email)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Contraseña</label>
+                            <InputText type="password" id="password" class="form-control" @bind-Value="loginModel.Password" />
+                            <ValidationMessage For="@(() => loginModel.Password)" />
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                                @if (isLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    <span> Cargando...</span>
+                                }
+                                else
+                                {
+                                    <span>Ingresar</span>
+                                }
+                            </button>
+                            <a href="Register" class="btn btn-link text-decoration-none">¿No tienes una cuenta? Regístrate</a>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginRequestDto loginModel = new();
+    private string? errorMessage;
+    private bool isLoading = false;
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            // 1. Llamada a TU API (Endpoint exacto según AuthController)
+            // POST: api/auth/login
+            var response = await Http.PostAsJsonAsync("api/auth/login", loginModel);
+
+            // 1. Manejo específico del Rate Limit (429)
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests) // 429
+            {
+                errorMessage = "Has excedido el número de intentos. Por favor espera 1 minuto.";
+                isLoading = false;
+                return;
+            }
+
+            // 2. Si no es 429, seguimos con la lógica normal de leer JSON
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<LoginResponseDto>>();
+
+            if (result != null && result.Success && result.Data != null)
+            {
+                // 3. Obtener nuestro AuthProvider personalizado
+                // Hacemos cast porque la interfaz genérica no tiene el método 'LoginAsync'
+                var customAuthProvider = (CustomAuthenticationStateProvider)AuthStateProvider;
+
+                // 4. Notificar al sistema que entramos (Guarda Token y Notifica estado)
+                await customAuthProvider.LoginAsync(result.Data);
+
+                // 5. Redirigir al Home o Dashboard
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                // Mostrar error del Backend (ej: "Cuenta bloqueada", "Credenciales inválidas")
+                errorMessage = result?.Error ?? "Ocurrió un error al iniciar sesión.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error de conexión: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

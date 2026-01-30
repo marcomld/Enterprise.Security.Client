@@ -1,0 +1,32 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using Enterprise.Security.Client.Infrastructure.Auth
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<AuthorizeView>
+    <Authorized>
+        <div class="d-flex align-items-center gap-3">
+            @* Cambiamos text-white a text-dark *@
+            <span class="text-dark">
+                Hola, <strong>@context.User.Identity?.Name</strong>
+            </span>
+
+            <button class="btn btn-outline-danger btn-sm" @onclick="BeginLogOut">
+                Cerrar Sesión
+            </button>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        @* Cambiamos text-white por un botón btn-primary (azul) o text-dark *@
+        <a href="login" class="btn btn-sm btn-outline-primary">Iniciar Sesión</a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private async Task BeginLogOut()
+    {
+        var customAuthProvider = (CustomAuthenticationStateProvider)AuthStateProvider;
+        await customAuthProvider.LogoutAsync();
+        Navigation.NavigateTo("/login");
+    }
+}

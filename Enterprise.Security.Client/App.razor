@@ -1,0 +1,28 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+
+@* 👇 1. ESTO ES LO QUE FALTABA: El proveedor en cascada *@
+<CascadingAuthenticationState>
+
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            @* 👇 2. Cambiamos RouteView por AuthorizeRouteView para soportar seguridad *@
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    @* Esto se muestra si el usuario intenta entrar a una pág protegida sin permiso *@
+                    <div class="alert alert-danger" role="alert">
+                        No tienes autorización para ver esta página.
+                        <a href="login" class="alert-link">Ir al Login</a>.
+                    </div>
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Not found</PageTitle>
+            <LayoutView Layout="@typeof(Layout.MainLayout)">
+                <p role="alert">Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+
+</CascadingAuthenticationState>
