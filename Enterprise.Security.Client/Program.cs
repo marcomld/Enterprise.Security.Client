@@ -12,7 +12,8 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // 1. Configurar HttpClient para apuntar a TU API (ajusta el puerto según tu launchSettings del backend)
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://localhost:7213") });
+//builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://localhost:7213") });
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://enterprisesecurity-e5cebaezaxc4debp.eastus-01.azurewebsites.net") });
 
 // 2. Registrar nuestro LocalStorage Nativo
 builder.Services.AddScoped<ILocalStorageService, LocalStorageService>();
