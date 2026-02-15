@@ -2,281 +2,285 @@
 @using Enterprise.Security.Client.Core.Common
 @using Enterprise.Security.Client.Core.DTOs.Users
 @using Enterprise.Security.Client.Core.Interfaces
-@using static System.Net.WebRequestMethods
 @inject IUserService UserService
 @inject IJSRuntime JS
 
 @attribute [Authorize(Policy = Permissions.Users.View)]
 
-<div class="container-fluid mt-4">
+<div class="container-fluid py-4">
+
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Gestión de Usuarios</h2>
-        @* Botón solo visible si tienes permiso de CREAR (opcional por ahora) *@
+        <div>
+            <h2 class="mb-1 fw-bold text-dark">Gestión de Usuarios</h2>
+            <p class="text-muted mb-0">Administra el acceso y los perfiles del sistema.</p>
+        </div>
         <AuthorizeView Policy="@Permissions.Users.Create">
             <Authorized>
-                <button class="btn btn-primary" @onclick="OpenCreateModal">
-                    <i class="bi bi-plus-lg"></i> Nuevo Usuario
+                <button class="btn btn-primary shadow-sm d-flex align-items-center gap-2 px-4 py-2" @onclick="OpenCreateModal">
+                    <i class="bi bi-person-plus-fill"></i>
+                    <span>Nuevo Usuario</span>
                 </button>
             </Authorized>
         </AuthorizeView>
     </div>
 
-    @if (isLoading)
+    @if (!string.IsNullOrEmpty(feedbackMessage))
     {
-        <div class="text-center">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Cargando...</span>
+        <div class="alert @(isSuccessFeedback ? "alert-success" : "alert-danger") alert-dismissible fade show shadow-sm border-0 mb-4" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="bi @(isSuccessFeedback ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill") fs-4 me-3"></i>
+                <div>
+                    <strong>@(isSuccessFeedback ? "¡Éxito!" : "Atención")</strong> @feedbackMessage
+                </div>
             </div>
-            <p class="mt-2">Cargando directorio...</p>
+            <button type="button" class="btn-close" @onclick="() => feedbackMessage = null"></button>
         </div>
     }
-    else if (users == null || !users.Any())
-    {
-        <div class="alert alert-info">
-            No se encontraron usuarios registrados.
-        </div>
-    }
-    else
-    {
-        <div class="card shadow-sm">
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover table-striped align-middle mb-0">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Usuario</th>
-                                <th>Nombre Completo</th>
-                                <th>Email</th>
-                                <th class="text-center">Estado</th>
-                                @* Columna de Acciones protegida *@
+
+    <div class="card border-0 shadow-sm overflow-hidden" style="border-radius: var(--radius-lg);">
+        @if (isLoading)
+        {
+            <div class="text-center py-5 my-5">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+                <p class="mt-3 text-muted fw-medium">Cargando directorio...</p>
+            </div>
+        }
+        else if (users == null || !users.Any())
+        {
+            <div class="text-center py-5">
+                <div class="mb-3 text-muted opacity-25">
+                    <i class="bi bi-people display-1"></i>
+                </div>
+                <h5 class="text-muted">No hay usuarios registrados</h5>
+                <p class="text-muted small">Comienza creando uno nuevo con el botón superior.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-uppercase text-muted small fw-bold">
+                        <tr>
+                            <th class="ps-4 py-3 border-0">Usuario</th>
+                            <th class="py-3 border-0">Estado</th>
+                            <th class="py-3 border-0">Registro</th>
+                            <AuthorizeView Policy="@Permissions.Users.Edit">
+                                <Authorized>
+                                    <th class="text-end pe-4 py-3 border-0">Acciones</th>
+                                </Authorized>
+                            </AuthorizeView>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in users)
+                        {
+                            <tr class="border-bottom-0">
+                                <td class="ps-4 py-3">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-circle me-3 @(user.IsActive ? "bg-primary-subtle text-primary" : "bg-secondary-subtle text-secondary")">
+                                            @GetInitials(user.FullName)
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-dark">@user.FullName</div>
+                                            <div class="text-muted small">@user.Email</div>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    @if (user.IsActive)
+                                    {
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">
+                                            Activo
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-3">
+                                            Inactivo
+                                        </span>
+                                    }
+                                </td>
+
+                                <td class="text-muted small">
+                                    @DateTime.Now.ToShortDateString()
+                                </td>
+
                                 <AuthorizeView Policy="@Permissions.Users.Edit">
                                     <Authorized>
-                                        <th class="text-center">Acciones</th>
+                                        <td class="text-end pe-4">
+                                            @if (user.IsActive)
+                                            {
+                                                <button class="btn btn-sm btn-action-subtle btn-danger-subtle"
+                                                        @onclick="() => PromptToggleStatus(user)"
+                                                        title="Desactivar acceso">
+                                                    <i class="bi bi-person-slash fs-6"></i>
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-sm btn-action-subtle btn-success-subtle"
+                                                        @onclick="() => PromptToggleStatus(user)"
+                                                        title="Reactivar acceso">
+                                                    <i class="bi bi-person-check fs-6"></i>
+                                                </button>
+                                            }
+                                        </td>
                                     </Authorized>
                                 </AuthorizeView>
                             </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var user in users)
-                            {
-                                <tr>
-                                    <td class="fw-bold">@user.UserName</td>
-                                    <td>@user.FullName</td>
-                                    <td>@user.Email</td>
-                                    <td class="text-center">
-                                        @if (user.IsActive)
-                                        {
-                                            <span class="badge bg-success rounded-pill">Activo</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge bg-danger rounded-pill">Inactivo</span>
-                                        }
-                                    </td>
-
-                                    @* Botones protegidos: Solo el Manager/Admin los ve *@
-                                    <AuthorizeView Policy="@Permissions.Users.Edit">
-                                        <Authorized>
-                                            <td class="text-center">
-                                                @if (user.IsActive)
-                                                {
-                                                    <button class="btn btn-outline-danger btn-sm"
-                                                            @onclick="() => ToggleUserStatus(user)"
-                                                            title="Desactivar usuario">
-                                                        Desactivar
-                                                    </button>
-                                                }
-                                                else
-                                                {
-                                                    <button class="btn btn-outline-success btn-sm"
-                                                            @onclick="() => ToggleUserStatus(user)"
-                                                            title="Activar usuario">
-                                                        Activar
-                                                    </button>
-                                                }
-                                            </td>
-                                        </Authorized>
-                                    </AuthorizeView>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-
-                    @* ... Tabla de usuarios arriba ... *@
-
-                    @* MODAL DE CREACIÓN *@
-                    @if (showCreateModal)
-                    {
-                        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-                            <div class="modal-dialog modal-dialog-centered">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">Registrar Nuevo Usuario</h5>
-                                        <button type="button" class="btn-close" @onclick="CloseModal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        @if (!string.IsNullOrEmpty(createError))
-                                        {
-                                            <div class="alert alert-danger">@createError</div>
-                                        }
-
-                                        <EditForm Model="@newUserModel" OnValidSubmit="HandleCreateUser">
-                                            <DataAnnotationsValidator />
-
-                                            <div class="mb-3">
-                                                <label>Nombre</label>
-                                                <InputText class="form-control" @bind-Value="newUserModel.FirstName" />
-                                                <ValidationMessage For="@(() => newUserModel.FirstName)" />
-                                            </div>
-                                            <div class="mb-3">
-                                                <label>Apellido</label>
-                                                <InputText class="form-control" @bind-Value="newUserModel.LastName" />
-                                                <ValidationMessage For="@(() => newUserModel.LastName)" />
-                                            </div>
-                                            <div class="mb-3">
-                                                <label>Email</label>
-                                                <InputText class="form-control" @bind-Value="newUserModel.Email" />
-                                                <ValidationMessage For="@(() => newUserModel.Email)" />
-                                            </div>
-                                            <div class="mb-3">
-                                                <label>Usuario (Login)</label>
-                                                <InputText class="form-control" @bind-Value="newUserModel.UserName" />
-                                                <ValidationMessage For="@(() => newUserModel.UserName)" />
-                                            </div>
-                                            <div class="mb-3">
-                                                <label>Contraseña Temporal</label>
-                                                <InputText type="password" class="form-control" @bind-Value="newUserModel.Password" />
-                                                <ValidationMessage For="@(() => newUserModel.Password)" />
-                                            </div>
-                                            <div class="mb-3">
-                                                <label>Confirmar Contraseña</label>
-                                                <InputText type="password" class="form-control" @bind-Value="newUserModel.ConfirmPassword" />
-                                                <ValidationMessage For="@(() => newUserModel.ConfirmPassword)" />
-                                            </div>
-
-                                            <div class="modal-footer px-0 pb-0">
-                                                <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancelar</button>
-                                                <button type="submit" class="btn btn-primary" disabled="@isCreating">
-                                                    @(isCreating ? "Guardando..." : "Guardar Usuario")
-                                                </button>
-                                            </div>
-                                        </EditForm>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    }
-
-                </div>
+                        }
+                    </tbody>
+                </table>
             </div>
-        </div>
-    }
+        }
+    </div>
 </div>
 
+@if (showCreateModal)
+{ /* ... El mismo código del modal crear ... */
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0 rounded-4">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold text-primary">
+                        <i class="bi bi-person-plus me-2"></i>Registrar Nuevo Usuario
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    @if (!string.IsNullOrEmpty(createError))
+                    {
+                        <div class="alert alert-danger d-flex align-items-center small p-2 mb-3"><i class="bi bi-exclamation-circle-fill me-2"></i> @createError</div>
+                    }
+                    <EditForm Model="@newUserModel" OnValidSubmit="HandleCreateUser">
+                        <DataAnnotationsValidator />
+                        <div class="row g-3"><div class="col-md-6"><div class="form-floating mb-3"><InputText id="newName" class="form-control" @bind-Value="newUserModel.FirstName" placeholder="Nombre" /><label for="newName">Nombre</label><ValidationMessage For="@(() => newUserModel.FirstName)" /></div></div><div class="col-md-6"><div class="form-floating mb-3"><InputText id="newLast" class="form-control" @bind-Value="newUserModel.LastName" placeholder="Apellido" /><label for="newLast">Apellido</label><ValidationMessage For="@(() => newUserModel.LastName)" /></div></div></div>
+                        <div class="form-floating mb-3"><InputText id="newEmail" class="form-control" @bind-Value="newUserModel.Email" placeholder="Email" /><label for="newEmail">Correo Electrónico</label><ValidationMessage For="@(() => newUserModel.Email)" /></div>
+                        <div class="form-floating mb-3"><InputText id="newUser" class="form-control" @bind-Value="newUserModel.UserName" placeholder="Usuario" /><label for="newUser">Nombre de Usuario (Login)</label><ValidationMessage For="@(() => newUserModel.UserName)" /></div>
+                        <div class="row g-3"><div class="col-md-6"><div class="form-floating mb-3"><InputText type="password" id="newPass" class="form-control" @bind-Value="newUserModel.Password" placeholder="Pass" /><label for="newPass">Contraseña</label><ValidationMessage For="@(() => newUserModel.Password)" /></div></div><div class="col-md-6"><div class="form-floating mb-3"><InputText type="password" id="newConf" class="form-control" @bind-Value="newUserModel.ConfirmPassword" placeholder="Conf" /><label for="newConf">Confirmar</label><ValidationMessage For="@(() => newUserModel.ConfirmPassword)" /></div></div></div>
+                        <div class="d-flex justify-content-end gap-2 mt-4 border-top pt-3"><button type="button" class="btn btn-light text-muted fw-medium" @onclick="CloseModal">Cancelar</button><button type="submit" class="btn btn-primary px-4 shadow-sm" disabled="@isCreating">@if (isCreating) {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        <span>Guardando...</span>
+ }
+else
+{
+                        <span>Guardar Usuario</span>
+                    }
+</button></div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
+@if (userToModify != null)
+{ /* ... El mismo código del modal confirmar ... */
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(2px);">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content shadow rounded-4 border-0">
+                <div class="modal-body text-center p-4">
+                    <div class="mb-3">@if (userToModify.IsActive) {
+                    <div class="rounded-circle bg-danger-subtle text-danger d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;"><i class="bi bi-person-slash fs-2"></i></div>
+                }
+                else
+                {
+
+                    <div class="rounded-circle bg-success-subtle text-success d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;"><i class="bi bi-person-check fs-2"></i></div>
+                }
+</div>
+                <h5 class="fw-bold">¿Estás seguro?</h5><p class="text-muted small">@(userToModify.IsActive ? $"Vas a desactivar el acceso de {userToModify.UserName}." : $"Vas a restaurar el acceso de {userToModify.UserName}.")</p>
+                <div class="d-grid gap-2 mt-4"><button class="btn @(userToModify.IsActive ? "btn-danger" : "btn-success")" @onclick="ConfirmToggleStatus">Sí, @(userToModify.IsActive ? "Desactivar" : "Activar")</button><button class="btn btn-link text-decoration-none text-muted btn-sm" @onclick="() => userToModify = null">Cancelar</button></div>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
+<style>
+    /* Estilos locales */
+    .avatar-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+
+    .bg-primary-subtle {
+        background-color: #e0f2fe;
+        color: #0369a1;
+    }
+
+    .bg-secondary-subtle {
+        background-color: #f1f5f9;
+        color: #64748b;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    /* --- NUEVOS ESTILOS PARA BOTONES DE ACCIÓN --- */
+    .btn-action-subtle {
+        border: none;
+        transition: all 0.2s ease;
+        width: 34px; /* Ligeramente más grandes y cuadrados */
+        height: 34px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+    }
+
+    /* Botón Danger (Desactivar) */
+    .btn-danger-subtle {
+        background-color: #fee2e2;
+        color: #b91c1c;
+    }
+
+        .btn-danger-subtle:hover {
+            background-color: #dc2626; /* Rojo sólido */
+            color: white !important; /* Icono blanco forzado */
+            transform: translateY(-1px); /* Pequeña elevación */
+        }
+
+    /* Botón Success (Activar) */
+    .btn-success-subtle {
+        background-color: #dcfce7;
+        color: #15803d;
+    }
+
+        .btn-success-subtle:hover {
+            background-color: #16a34a; /* Verde sólido */
+            color: white !important; /* Icono blanco forzado */
+            transform: translateY(-1px);
+        }
+</style>
+
 @code {
+    // ... (El bloque @code es EXACTAMENTE el mismo que antes) ...
     private List<UserResponseDto>? users;
     private bool isLoading = true;
-
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadUsers();
-    }
-
-    private async Task LoadUsers()
-    {
-        isLoading = true;
-        try
-        {
-            users = await UserService.GetAllAsync();
-        }
-        finally
-        {
-            isLoading = false;
-        }
-    }
-
-    private async Task ToggleUserStatus(UserResponseDto user)
-    {
-        string resultMessage;
-        bool isSuccess = false;
-
-        // Confirmación simple con JS nativo
-        bool confirmed = await JS.InvokeAsync<bool>("confirm",
-            $"¿Estás seguro que deseas {(user.IsActive ? "desactivar" : "activar")} a {user.UserName}?");
-
-        if (!confirmed) return;
-
-        if (user.IsActive)
-        {
-            resultMessage = await UserService.DeactivateAsync(user.Id);
-            if (string.IsNullOrEmpty(resultMessage)) isSuccess = true;
-        }
-        else
-        {
-            resultMessage = await UserService.ActivateAsync(user.Id);
-            if (string.IsNullOrEmpty(resultMessage)) isSuccess = true;
-        }
-
-        if (isSuccess)
-        {
-            // Actualizamos la lista para reflejar el cambio
-            await LoadUsers();
-            // Opcional: Podrías actualizar solo el objeto en memoria para evitar otra llamada a la API
-            // user.IsActive = !user.IsActive;
-        }
-        else
-        {
-            await JS.InvokeVoidAsync("alert", $"Error: {resultMessage}");
-        }
-    }
-
-    // Variables para el Modal
+    private string? feedbackMessage;
+    private bool isSuccessFeedback;
     private bool showCreateModal = false;
     private CreateUserDto newUserModel = new();
     private string? createError;
     private bool isCreating = false;
+    private UserResponseDto? userToModify;
 
-    // Método para abrir el modal
-    private void OpenCreateModal()
-    {
-        // Al cambiar el tipo arriba, el compilador sabrá que aquí debe crear un CreateUserDto
-        newUserModel = new CreateUserDto(); 
-        createError = null;
-        showCreateModal = true;
-    }
-
-    private void CloseModal()
-    {
-        showCreateModal = false;
-    }
-
-    private async Task HandleCreateUser()
-    {
-        isCreating = true;
-        createError = null;
-
-        try
-        {
-            // Llamamos a TU servicio, no al Http directo
-            var errorMessage = await UserService.CreateAsync(newUserModel);
-
-            if (string.IsNullOrEmpty(errorMessage))
-            {
-                showCreateModal = false;
-                await LoadUsers(); // Recargar tabla
-            }
-            else
-            {
-                createError = errorMessage;
-            }
-        }
-        catch (Exception ex)
-        {
-            createError = ex.Message;
-        }
-        finally
-        {
-            isCreating = false;
-        }
-    }
+    protected override async Task OnInitializedAsync() { await LoadUsers(); }
+    private async Task LoadUsers() { isLoading = true; try { users = await UserService.GetAllAsync(); } finally { isLoading = false; } }
+    private void PromptToggleStatus(UserResponseDto user) { userToModify = user; }
+    private async Task ConfirmToggleStatus() { if (userToModify == null) return; string resultMessage; bool isSuccess = false; if (userToModify.IsActive) { resultMessage = await UserService.DeactivateAsync(userToModify.Id); if (string.IsNullOrEmpty(resultMessage)) isSuccess = true; } else { resultMessage = await UserService.ActivateAsync(userToModify.Id); if (string.IsNullOrEmpty(resultMessage)) isSuccess = true; } var action = userToModify.IsActive ? "desactivado" : "activado"; userToModify = null; if (isSuccess) { isSuccessFeedback = true; feedbackMessage = $"Usuario {action} correctamente."; await LoadUsers(); } else { isSuccessFeedback = false; feedbackMessage = $"Error: {resultMessage}"; } }
+    private void OpenCreateModal() { newUserModel = new CreateUserDto(); createError = null; showCreateModal = true; }
+    private void CloseModal() { showCreateModal = false; }
+    private async Task HandleCreateUser() { isCreating = true; createError = null; try { var errorMessage = await UserService.CreateAsync(newUserModel); if (string.IsNullOrEmpty(errorMessage)) { showCreateModal = false; isSuccessFeedback = true; feedbackMessage = "Usuario creado exitosamente."; await LoadUsers(); } else { createError = errorMessage; } } catch (Exception ex) { createError = ex.Message; } finally { isCreating = false; } }
+    private string GetInitials(string fullName) { if (string.IsNullOrWhiteSpace(fullName)) return "U"; var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries); if (parts.Length == 1) return parts[0][0].ToString().ToUpper(); return $"{parts[0][0]}{parts[1][0]}".ToUpper(); }
 }

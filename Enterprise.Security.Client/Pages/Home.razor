@@ -1,7 +1,361 @@
 ﻿@page "/"
+@using Enterprise.Security.Client.Core.Interfaces
+@using Enterprise.Security.Client.Core.DTOs.Users
+@using Enterprise.Security.Client.Core.DTOs.Audit
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]
 
-<PageTitle>Home</PageTitle>
+@inject IUserService UserService
+@inject IRoleService RoleService
+@inject IAuditLogService AuditService
+@inject AuthenticationStateProvider AuthState
 
-<h1>Hello, world!</h1>
+<div class="container-fluid py-4">
 
-Welcome to your new app.
+    <div class="d-flex justify-content-between align-items-end mb-4">
+        <div>
+            <h6 class="text-uppercase text-muted small fw-bold mb-1">Visión General</h6>
+            <h2 class="fw-bold text-dark mb-0">
+                Hola, <span class="text-primary">@userName</span> 👋
+            </h2>
+            <p class="text-muted mb-0 small">Aquí tienes el resumen de seguridad de hoy.</p>
+        </div>
+        <div class="text-end d-none d-md-block">
+            <div class="badge bg-white text-dark border shadow-sm p-2 px-3 rounded-pill">
+                <i class="bi bi-calendar-event me-2 text-primary"></i>
+                @DateTime.Now.ToString("D")
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="row g-4 mb-4">
+            @for (int i = 0; i < 4; i++)
+            {
+                <div class="col-md-6 col-xl-3"><div class="card border-0 shadow-sm h-100 p-4"><div class="placeholder-glow"><span class="placeholder col-6"></span><span class="placeholder col-4 mt-2"></span></div></div></div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="row g-4 mb-4">
+            <div class="col-md-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100 overflow-hidden card-hover">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="icon-box bg-primary-subtle text-primary rounded-circle me-3">
+                                <i class="bi bi-people-fill fs-5"></i>
+                            </div>
+                            <h6 class="card-title text-muted text-uppercase small fw-bold mb-0">Usuarios</h6>
+                        </div>
+                        <div class="d-flex align-items-baseline">
+                            <h3 class="mb-0 fw-bold text-dark me-2">@totalUsers</h3>
+                            <span class="badge bg-success-subtle text-success rounded-pill small">
+                                <i class="bi bi-arrow-up-short"></i> Activos
+                            </span>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 4px;">
+                        <div class="progress-bar bg-primary" role="progressbar" style="width: 70%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100 overflow-hidden card-hover">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="icon-box bg-info-subtle text-info rounded-circle me-3">
+                                <i class="bi bi-shield-lock-fill fs-5"></i>
+                            </div>
+                            <h6 class="card-title text-muted text-uppercase small fw-bold mb-0">Roles Definidos</h6>
+                        </div>
+                        <div class="d-flex align-items-baseline">
+                            <h3 class="mb-0 fw-bold text-dark me-2">@totalRoles</h3>
+                            <small class="text-muted">niveles de acceso</small>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 4px;">
+                        <div class="progress-bar bg-info" role="progressbar" style="width: 45%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100 overflow-hidden card-hover">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="icon-box bg-warning-subtle text-warning rounded-circle me-3">
+                                <i class="bi bi-activity fs-5"></i>
+                            </div>
+                            <h6 class="card-title text-muted text-uppercase small fw-bold mb-0">Eventos Totales</h6>
+                        </div>
+                        <div class="d-flex align-items-baseline">
+                            <h3 class="mb-0 fw-bold text-dark me-2">@totalLogs</h3>
+                            <small class="text-muted">registrados</small>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 4px;">
+                        <div class="progress-bar bg-warning" role="progressbar" style="width: 60%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-xl-3">
+                <div class="card border-0 shadow-sm h-100 overflow-hidden card-hover">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="icon-box bg-danger-subtle text-danger rounded-circle me-3">
+                                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                            </div>
+                            <h6 class="card-title text-muted text-uppercase small fw-bold mb-0">Incidentes</h6>
+                        </div>
+                        <div class="d-flex align-items-baseline">
+                            <h3 class="mb-0 fw-bold text-dark me-2">@failedLogs</h3>
+                            @if (failedLogs > 0)
+                            {
+                                <span class="badge bg-danger-subtle text-danger rounded-pill small">Atención</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success-subtle text-success rounded-pill small">Todo OK</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 4px;">
+                        <div class="progress-bar bg-danger" role="progressbar" style="width: @(failedLogs > 0 ? "100%" : "0%")"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold text-dark mb-0">Actividad Reciente</h5>
+                        <a href="audit-logs" class="btn btn-sm btn-link text-decoration-none small">Ver todo</a>
+                    </div>
+                    <div class="card-body px-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="bg-light text-muted small text-uppercase">
+                                    <tr>
+                                        <th class="ps-4 border-0">Hora</th>
+                                        <th class="border-0">Usuario</th>
+                                        <th class="border-0">Acción</th>
+                                        <th class="border-0 pe-4 text-end">IP</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (recentLogs.Any())
+                                    {
+                                        @foreach (var log in recentLogs)
+                                        {
+                                            <tr>
+                                                <td class="ps-4 text-muted small" style="width: 15%;">
+                                                    @log.CreatedAt.ToLocalTime().ToString("HH:mm") <br>
+                                                    <span style="font-size: 0.7rem;">@log.CreatedAt.ToLocalTime().ToString("MMM dd")</span>
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="rounded-circle bg-light border d-flex justify-content-center align-items-center me-2 small fw-bold text-secondary" style="width: 32px; height: 32px;">
+                                                            @GetInitials(log.UserEmail)
+                                                        </div>
+                                                        <div class="small fw-semibold text-dark">
+                                                            @(string.IsNullOrEmpty(log.UserEmail) ? "System" : log.UserEmail)
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge @GetBadgeClass(log.Action) rounded-pill fw-normal">@log.Action</span>
+                                                </td>
+                                                <td class="text-end pe-4 small text-muted font-monospace">
+                                                    @log.IpAddress
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr><td colspan="4" class="text-center py-4 text-muted">Sin actividad reciente.</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+                        <h5 class="fw-bold text-dark mb-0">Acciones Rápidas</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="d-grid gap-3">
+                            <a href="users" class="btn btn-outline-primary py-2 d-flex align-items-center justify-content-center gap-2 shadow-sm border-2">
+                                <i class="bi bi-person-plus-fill"></i> Gestionar Usuarios
+                            </a>
+                            <a href="roles" class="btn btn-outline-dark py-2 d-flex align-items-center justify-content-center gap-2 shadow-sm border-2">
+                                <i class="bi bi-shield-lock-fill"></i> Configurar Roles
+                            </a>
+                            <a href="audit-logs" class="btn btn-light text-muted py-2 d-flex align-items-center justify-content-center gap-2 border">
+                                <i class="bi bi-search"></i> Buscar en Logs
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm bg-primary text-white overflow-hidden">
+                    <div class="card-body p-4">
+                        <h5 class="fw-bold mb-3"><i class="bi bi-cpu me-2"></i>Estado del Sistema</h5>
+
+                        <div class="d-flex justify-content-between mb-2 small opacity-75">
+                            <span>API Status</span>
+                            <span>Online</span>
+                        </div>
+                        <div class="progress bg-white bg-opacity-25 mb-3" style="height: 6px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-2 small opacity-75">
+                            <span>Database</span>
+                            <span>Connected</span>
+                        </div>
+                        <div class="progress bg-white bg-opacity-25" style="height: 6px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    /* Estilos locales para Dashboard */
+    .icon-box {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .card-hover {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+        .card-hover:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-md) !important;
+        }
+
+    .bg-primary-subtle {
+        background-color: #e0f2fe;
+        color: #0369a1;
+    }
+
+    .bg-info-subtle {
+        background-color: #e0f7fa;
+        color: #006064;
+    }
+
+    .bg-warning-subtle {
+        background-color: #fffbeb;
+        color: #b45309;
+    }
+
+    .bg-danger-subtle {
+        background-color: #fef2f2;
+        color: #b91c1c;
+    }
+</style>
+
+@code {
+    private string userName = "Usuario";
+    private bool isLoading = true;
+
+    // Stats
+    private int totalUsers;
+    private int totalRoles;
+    private int totalLogs;
+    private int failedLogs;
+    private List<AuditLogResponseDto> recentLogs = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 1. Obtener nombre del usuario actual
+        var state = await AuthState.GetAuthenticationStateAsync();
+        var user = state.User;
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            // Intentar obtener el nombre corto o el email
+            userName = user.Identity.Name ?? "Usuario";
+            // Si es un email largo, cortarlo visualmente
+            if (userName.Contains("@")) userName = userName.Split('@')[0];
+            // Capitalizar primera letra
+            if (!string.IsNullOrEmpty(userName)) userName = char.ToUpper(userName[0]) + userName.Substring(1);
+        }
+
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        isLoading = true;
+        try
+        {
+            // Ejecutamos las llamadas en paralelo para máxima velocidad
+            var usersTask = UserService.GetAllAsync();
+            var rolesTask = RoleService.GetAllAsync();
+            var logsTask = AuditService.GetLogsAsync(null);
+
+            await Task.WhenAll(usersTask, rolesTask, logsTask);
+
+            // Procesar Resultados
+            var users = await usersTask;
+            totalUsers = users?.Count ?? 0;
+
+            var roles = await rolesTask;
+            totalRoles = roles?.Count ?? 0;
+
+            var logs = await logsTask;
+            if (logs != null)
+            {
+                totalLogs = logs.Count;
+                // Calculamos fallos basándonos en nombres comunes de error
+                failedLogs = logs.Count(l => l.Action.ToLower().Contains("fail") || l.Action.ToLower().Contains("error") || l.Action.ToLower().Contains("lock"));
+                // Tomamos los últimos 5 para la tabla
+                recentLogs = logs.OrderByDescending(l => l.CreatedAt).Take(5).ToList();
+            }
+        }
+        catch (Exception)
+        {
+            // En caso de error, no bloqueamos el dashboard, mostramos ceros.
+            // Aquí podrías loguear el error silenciosamente.
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // Helpers Visuales (Reutilizados para consistencia)
+    private string GetBadgeClass(string action)
+    {
+        action = action.ToLower();
+        if (action.Contains("delete") || action.Contains("fail")) return "bg-danger-subtle text-danger";
+        if (action.Contains("create") || action.Contains("login")) return "bg-success-subtle text-success";
+        return "bg-secondary-subtle text-secondary";
+    }
+
+    private string GetInitials(string? email)
+    {
+        if (string.IsNullOrEmpty(email)) return "S";
+        return email.Substring(0, 1).ToUpper();
+    }
+}

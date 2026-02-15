@@ -1,69 +1,123 @@
 ﻿@page "/register"
-@* @layout Layout.LoginLayout *@
+@layout Enterprise.Security.Client.Layout.AuthLayout
 @using Enterprise.Security.Client.Core.DTOs.Auth
 @using Enterprise.Security.Client.Core.Interfaces
 @inject IClientAuthService AuthService
 @inject NavigationManager Navigation
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
-            <div class="card shadow border-0">
-                <div class="card-header bg-primary text-white text-center py-3">
-                    <h4 class="mb-0">Crear Cuenta Nueva</h4>
+<div class="container-fluid p-0">
+    <div class="row g-0 min-vh-100">
+
+        <div class="col-lg-6 d-none d-lg-flex flex-column justify-content-center align-items-center position-relative overflow-hidden">
+
+            <div class="absolute-fill bg-base"></div>
+            <div class="login-shape shape-1"></div>
+            <div class="login-shape shape-2"></div>
+            <div class="absolute-fill grid-pattern"></div>
+
+            <div class="position-relative z-2 text-center p-5 glass-card mx-5">
+                <div class="mb-4 d-inline-block p-3 rounded-circle bg-white bg-opacity-10 text-white border border-white border-opacity-25 shadow-lg">
+                    <i class="bi bi-person-badge-fill display-4"></i>
                 </div>
-                <div class="card-body p-4">
+                <h1 class="display-5 fw-bold mb-3 text-white">Únete al Equipo</h1>
+                <p class="lead text-white-50">
+                    Crea tu identidad digital segura y gestiona<br>
+                    tus accesos desde un solo lugar.
+                </p>
+            </div>
+        </div>
+
+        <div class="col-lg-6 d-flex align-items-center justify-content-center bg-light-gray position-relative py-5">
+
+            <div class="position-absolute bottom-0 end-0 p-5 mb-5 me-5 d-none d-md-block opacity-25">
+                <svg width="150" height="150" viewBox="0 0 100 100" fill="none">
+                    <circle cx="50" cy="50" r="40" stroke="#CBD5E1" stroke-width="2" />
+                </svg>
+            </div>
+
+            <div class="login-card shadow-lg w-100 mx-3 mx-md-5" style="max-width: 600px;">
+                <div class="card-accent-bar"></div>
+
+                <div class="p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <h3 class="fw-bold text-dark">Crear Cuenta Nueva</h3>
+                        <p class="text-muted small">Completa el formulario para registrarte en la plataforma.</p>
+                    </div>
+
                     @if (!string.IsNullOrEmpty(errorMessage))
                     {
-                        <div class="alert alert-danger">@errorMessage</div>
+                        <div class="alert alert-danger d-flex align-items-center mb-4 border-0 shadow-sm rounded-3 small" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <div>@errorMessage</div>
+                        </div>
                     }
 
                     <EditForm Model="@registerModel" OnValidSubmit="HandleRegister">
                         <DataAnnotationsValidator />
 
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Nombre</label>
-                                <InputText class="form-control" @bind-Value="registerModel.FirstName" />
-                                <ValidationMessage For="@(() => registerModel.FirstName)" />
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <InputText id="firstname" class="form-control" @bind-Value="registerModel.FirstName" placeholder="Nombre" />
+                                    <label for="firstname">Nombre</label>
+                                    <ValidationMessage For="@(() => registerModel.FirstName)" />
+                                </div>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Apellido</label>
-                                <InputText class="form-control" @bind-Value="registerModel.LastName" />
-                                <ValidationMessage For="@(() => registerModel.LastName)" />
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <InputText id="lastname" class="form-control" @bind-Value="registerModel.LastName" placeholder="Apellido" />
+                                    <label for="lastname">Apellido</label>
+                                    <ValidationMessage For="@(() => registerModel.LastName)" />
+                                </div>
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Usuario</label>
-                            <InputText class="form-control" @bind-Value="registerModel.UserName" placeholder="Ej: jdoe" />
+                        <div class="form-floating mb-3">
+                            <InputText id="username" class="form-control" @bind-Value="registerModel.UserName" placeholder="Usuario" />
+                            <label for="username">Nombre de Usuario</label>
                             <ValidationMessage For="@(() => registerModel.UserName)" />
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Email</label>
-                            <InputText class="form-control" @bind-Value="registerModel.Email" />
+                        <div class="form-floating mb-3">
+                            <InputText id="email" class="form-control" @bind-Value="registerModel.Email" placeholder="name@example.com" />
+                            <label for="email">Correo Electrónico</label>
                             <ValidationMessage For="@(() => registerModel.Email)" />
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Contraseña</label>
-                                <InputText type="password" class="form-control" @bind-Value="registerModel.Password" />
-                                <ValidationMessage For="@(() => registerModel.Password)" />
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <InputText type="password" id="pass" class="form-control" @bind-Value="registerModel.Password" placeholder="Password" />
+                                    <label for="pass">Contraseña</label>
+                                    <ValidationMessage For="@(() => registerModel.Password)" />
+                                </div>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Confirmar</label>
-                                <InputText type="password" class="form-control" @bind-Value="registerModel.ConfirmPassword" />
-                                <ValidationMessage For="@(() => registerModel.ConfirmPassword)" />
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <InputText type="password" id="confirmpass" class="form-control" @bind-Value="registerModel.ConfirmPassword" placeholder="Confirm" />
+                                    <label for="confirmpass">Confirmar</label>
+                                    <ValidationMessage For="@(() => registerModel.ConfirmPassword)" />
+                                </div>
                             </div>
                         </div>
 
-                        <div class="d-grid gap-2 mt-4">
-                            <button type="submit" class="btn btn-primary btn-lg" disabled="@isLoading">
-                                @(isLoading ? "Registrando..." : "Registrarse")
+                        <div class="d-grid gap-2 mb-4">
+                            <button type="submit" class="btn btn-primary btn-lg shadow-hover fw-semibold" disabled="@isLoading">
+                                @if (isLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <span>Registrando...</span>
+                                }
+                                else
+                                {
+                                    <span>Crear Cuenta</span>
+                                }
                             </button>
-                            <a href="login" class="btn btn-link text-decoration-none">¿Ya tienes cuenta? Inicia sesión</a>
+                        </div>
+
+                        <div class="text-center mt-4">
+                            <span class="text-muted small">¿Ya tienes una cuenta?</span>
+                            <a href="login" class="fw-bold text-decoration-none ms-1 link-accent">Inicia Sesión</a>
                         </div>
                     </EditForm>
                 </div>
@@ -71,6 +125,117 @@
         </div>
     </div>
 </div>
+
+<style>
+    /* --- UTILITIES (Mismos que Login para consistencia) --- */
+    .absolute-fill {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    /* --- BRANDING LEFT --- */
+    .bg-base {
+        background: radial-gradient(circle at bottom left, #0f172a, #1e293b);
+        z-index: 0;
+    }
+
+    .grid-pattern {
+        background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+        background-size: 30px 30px;
+        opacity: 0.5;
+        z-index: 1;
+    }
+
+    .glass-card {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 1.5rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .login-shape {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(90px);
+        z-index: 0;
+        opacity: 0.6;
+        animation: floatShape 12s infinite ease-in-out alternate;
+    }
+
+    .shape-1 {
+        width: 500px;
+        height: 500px;
+        background: var(--brand-accent);
+        top: -15%;
+        left: -15%;
+    }
+
+    .shape-2 {
+        width: 400px;
+        height: 400px;
+        background: #7c3aed;
+        bottom: -10%;
+        right: -10%;
+        animation-delay: -5s;
+    }
+
+    @@keyframes floatShape {
+        0% {
+            transform: translate(0, 0);
+        }
+
+        100% {
+            transform: translate(40px, 20px);
+        }
+    }
+
+    /* --- FORM RIGHT --- */
+    .bg-light-gray {
+        background-color: #f8fafc;
+    }
+
+    .login-card {
+        background-color: #ffffff;
+        border-radius: 1rem;
+        overflow: hidden;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .card-accent-bar {
+        height: 4px;
+        width: 100%;
+        background: linear-gradient(90deg, var(--brand-accent) 0%, #7c3aed 100%);
+    }
+
+    .link-accent {
+        color: var(--brand-accent);
+        transition: color 0.2s;
+    }
+
+        .link-accent:hover {
+            color: #1d4ed8;
+            text-decoration: underline !important;
+        }
+
+    .form-control:focus {
+        border-color: var(--brand-accent);
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    }
+
+    .shadow-hover {
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+        .shadow-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+        }
+</style>
 
 @code {
     private RegisterRequestDto registerModel = new();
@@ -85,9 +250,9 @@
         try
         {
             var result = await AuthService.RegisterAsync(registerModel);
-
             if (result.Success)
             {
+                // Éxito: Redirigir al login o al home
                 Navigation.NavigateTo("/");
             }
             else
@@ -104,4 +269,4 @@
             isLoading = false;
         }
     }
-}
+} 

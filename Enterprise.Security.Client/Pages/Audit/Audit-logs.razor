@@ -1,115 +1,285 @@
 ﻿@page "/audit-logs"
 @using Enterprise.Security.Client.Core.DTOs.Audit
 @using Enterprise.Security.Client.Core.Interfaces
+@using Enterprise.Security.Client.Core.Common
 @inject IAuditLogService AuditService
+@inject IJSRuntime JS
+
 @attribute [Authorize(Policy = Permissions.Audits.View)]
 
-<div class="container-fluid mt-4">
+<div class="container-fluid py-4">
+
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="mb-0"><i class="bi bi-shield-check me-2"></i>Auditoría de Seguridad</h2>
-        <button class="btn btn-outline-secondary btn-sm" @onclick="LoadLogs" disabled="@isLoading">
-            <i class="bi bi-arrow-clockwise me-1"></i> Recargar
-        </button>
+        <div>
+            <h2 class="mb-1 fw-bold text-dark">Auditoría del Sistema</h2>
+            <p class="text-muted mb-0">Rastro digital de todas las operaciones y accesos.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary shadow-sm" @onclick="LoadLogs" disabled="@isLoading">
+                <i class="bi bi-arrow-clockwise @(isLoading ? "spin-icon" : "")"></i> Actualizar
+            </button>
+        </div>
     </div>
 
-    <div class="card shadow border-0">
-        <div class="card-body p-0">
+    <div class="card border-0 shadow-sm mb-4 bg-white" style="border-radius: var(--radius-md);">
+        <div class="card-body p-3">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text-muted text-uppercase">Búsqueda</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control border-start-0 ps-0" placeholder="Usuario, IP o Acción..." @bind="searchText" @bind:event="oninput" @onkeyup="ApplyFilters">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted text-uppercase">Desde</label>
+                    <input type="date" class="form-control" @bind="dateFrom" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted text-uppercase">Hasta</label>
+                    <input type="date" class="form-control" @bind="dateTo" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label d-block">&nbsp;</label>
+                    <button class="btn btn-primary w-100" @onclick="ApplyFilters">
+                        Filtrar
+                    </button>
+                </div>
+                <div class="col-md-3 text-end">
+                    <label class="form-label d-block">&nbsp;</label>
+                    <span class="badge bg-light text-dark border">
+                        @filteredLogs.Count registros encontrados
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm overflow-hidden" style="border-radius: var(--radius-lg);">
+        @if (isLoading)
+        {
+            <div class="text-center py-5 my-5">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+                <p class="mt-3 text-muted fw-medium">Analizando bitácoras...</p>
+            </div>
+        }
+        else if (filteredLogs == null || !filteredLogs.Any())
+        {
+            <div class="text-center py-5">
+                <div class="mb-3 text-muted opacity-25">
+                    <i class="bi bi-clipboard-data display-1"></i>
+                </div>
+                <h5 class="text-muted">No se encontraron eventos</h5>
+                <p class="text-muted small">Intenta ajustar los filtros de búsqueda.</p>
+            </div>
+        }
+        else
+        {
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
-                    <thead class="bg-light text-secondary">
+                    <thead class="bg-light text-uppercase text-muted small fw-bold">
                         <tr>
-                            <th scope="col" class="ps-4">Fecha / IP</th>
-                            <th scope="col">Usuario</th>
-                            <th scope="col">Acción</th>
-                            <th scope="col">Entidad</th>
-                            <th scope="col">Detalles</th>
+                            <th class="ps-4 py-3 border-0">Timestamp / IP</th>
+                            <th class="py-3 border-0">Usuario</th>
+                            <th class="py-3 border-0">Acción</th>
+                            <th class="py-3 border-0">Entidad</th>
+                            <th class="text-end pe-4 py-3 border-0">Detalles</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @if (isLoading)
+                        @foreach (var log in filteredLogs)
                         {
-                            <tr><td colspan="5" class="text-center p-5"><div class="spinner-border text-primary"></div></td></tr>
-                        }
-                        else if (logs == null || !logs.Any())
-                        {
-                            <tr><td colspan="5" class="text-center p-5 text-muted">No hay registros de auditoría recientes.</td></tr>
-                        }
-                        else
-                        {
-                            @foreach (var log in logs)
-                            {
-                                <tr>
-                                    <td class="ps-4">
+                            <tr class="border-bottom-0">
+                                <td class="ps-4 py-3">
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-3 rounded-circle d-flex align-items-center justify-content-center"
+                                             style="width: 36px; height: 36px; background-color: #f1f5f9;">
+                                            <i class="@GetActionIcon(log.Action) text-muted"></i>
+                                        </div>
                                         <div class="d-flex flex-column">
-                                            <span class="fw-bold text-dark">
-                                                @log.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                            <span class="fw-bold text-dark" style="font-family: monospace;">
+                                                @log.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
                                             </span>
-                                            <div class="small text-muted" title="@log.UserAgent">
-                                                <i class="bi bi-geo-alt me-1"></i>@log.IpAddress
-                                                <i class="bi bi-info-circle ms-1 text-primary"
-                                                   style="cursor: help;"
-                                                   title="Navegador: @log.UserAgent"></i>
+                                            <div class="small text-muted d-flex align-items-center gap-2">
+                                                <span><i class="bi bi-laptop me-1"></i>@log.IpAddress</span>
                                             </div>
                                         </div>
-                                    </td>
+                                    </div>
+                                </td>
 
-                                    <td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(log.UserEmail))
+                                    {
                                         <div class="d-flex flex-column">
-                                            <span class="fw-medium">@log.UserEmail</span>
-                                            <small class="text-muted" style="font-size: 0.75rem;">ID: @log.UserId</small>
+                                            <span class="fw-semibold text-dark">@log.UserEmail</span>
+                                            <span class="small text-muted" style="font-size: 0.7rem;">ID: @log.UserId</span>
                                         </div>
-                                    </td>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-light text-secondary border">Sistema / Anónimo</span>
+                                    }
+                                </td>
 
-                                    <td>
-                                        @if (log.Action.Contains("Delete") || log.Action.Contains("Fail") || log.Action.Contains("Lock"))
-                                        {
-                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill">
-                                                @log.Action
-                                            </span>
-                                        }
-                                        else if (log.Action.Contains("Create") || log.Action.Contains("Success") || log.Action.Contains("Login"))
-                                        {
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">
-                                                @log.Action
-                                            </span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill">
-                                                @log.Action
-                                            </span>
-                                        }
-                                    </td>
+                                <td>
+                                    <span class="badge @GetBadgeClass(log.Action) rounded-pill px-3 py-2">
+                                        @log.Action
+                                    </span>
+                                </td>
 
-                                    <td>
-                                        <span class="badge bg-light text-dark border">@log.Entity
+                                <td>
+                                    @if (!string.IsNullOrEmpty(log.Entity))
+                                    {
+                                        <span class="badge bg-white text-dark border shadow-sm">
+                                            @log.Entity
+                                            @if (!string.IsNullOrEmpty(log.EntityId))
+                                            {
+                                                <span class="text-muted opacity-50 ms-1">#@ShortGuid(log.EntityId)</span>
+                                            }
                                         </span>
-                                    </td>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
 
-                                    <td>
-                                        <span class="text-muted small text-break" style="max-width: 250px; display: block;">
-                                            @log.AdditionalData
-                                        </span>
-                                    </td>
-                                </tr>
-                            }
+                                <td class="text-end pe-4">
+                                    <button class="btn btn-sm btn-light text-primary fw-medium border shadow-sm"
+                                            @onclick="() => OpenDetails(log)">
+                                        Ver Datos
+                                    </button>
+                                </td>
+                            </tr>
                         }
                     </tbody>
                 </table>
             </div>
-        </div>
-        <div class="card-footer bg-white border-top-0 text-muted small py-3 ps-4">
-            <i class="bi bi-info-circle me-1"></i> Mostrando los últimos 200 eventos de seguridad.
-        </div>
+
+            <div class="card-footer bg-white border-top text-muted small py-3 px-4 d-flex justify-content-between">
+                <span>Mostrando registros recientes.</span>
+                <span>Total cargado: @filteredLogs.Count</span>
+            </div>
+        }
     </div>
 </div>
 
+@if (selectedLog != null)
+{
+    <div class="modal fade show d-block backdrop-blur" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content shadow-lg border-0 rounded-4">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark">Detalle del Evento</h5>
+                        <p class="text-muted small mb-0">ID Auditoría: <span class="font-monospace">@selectedLog.Id</span></p>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="() => selectedLog = null"></button>
+                </div>
+                <div class="modal-body p-4">
+
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <h6 class="text-uppercase text-muted small fw-bold mb-3">Información de Origen</h6>
+                            <ul class="list-group list-group-flush border rounded">
+                                <li class="list-group-item d-flex justify-content-between bg-light">
+                                    <span class="text-muted">Fecha</span>
+                                    <span class="fw-bold">@selectedLog.CreatedAt.ToLocalTime()</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span class="text-muted">IP</span>
+                                    <span class="font-monospace">@selectedLog.IpAddress</span>
+                                </li>
+                                <li class="list-group-item">
+                                    <span class="text-muted d-block mb-1">User Agent</span>
+                                    <small class="text-break text-secondary">@selectedLog.UserAgent</small>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="col-md-6">
+                            <h6 class="text-uppercase text-muted small fw-bold mb-3">Contexto</h6>
+                            <ul class="list-group list-group-flush border rounded">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span class="text-muted">Usuario</span>
+                                    <span class="fw-bold">@(selectedLog.UserEmail ?? "N/A")</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span class="text-muted">Acción</span>
+                                    <span class="badge @GetBadgeClass(selectedLog.Action)">@selectedLog.Action</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span class="text-muted">Entidad Afectada</span>
+                                    <span>@selectedLog.Entity</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="col-12">
+                            <h6 class="text-uppercase text-muted small fw-bold mb-2">Datos Adicionales (Payload)</h6>
+                            <div class="bg-dark text-white p-3 rounded-3 shadow-inner position-relative overflow-auto" style="max-height: 200px;">
+                                @if (!string.IsNullOrEmpty(selectedLog.AdditionalData))
+                                {
+                                    <pre class="mb-0 small font-monospace">@FormatJson(selectedLog.AdditionalData)</pre>
+                                }
+                                else
+                                {
+                                    <span class="text-white-50 fst-italic">No hay datos adicionales registrados.</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-primary w-100" @onclick="() => selectedLog = null">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .backdrop-blur {
+        background-color: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+    }
+
+    .spin-icon {
+        animation: spin 1s linear infinite;
+    }
+
+    @@keyframes spin {
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* JSON Viewer style */
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+</style>
+
 @code {
-    private List<AuditLogResponseDto>? logs;
-    private bool isLoading = false;
+    private List<AuditLogResponseDto> allLogs = new();
+    private List<AuditLogResponseDto> filteredLogs = new();
+    private bool isLoading = true;
+
+    // Filtros
+    private string searchText = "";
+    private DateTime? dateFrom;
+    private DateTime? dateTo;
+
+    // Modal
+    private AuditLogResponseDto? selectedLog;
 
     protected override async Task OnInitializedAsync()
     {
+        // Default: Últimos 7 días
+        dateFrom = DateTime.Today.AddDays(-7);
+        dateTo = DateTime.Today;
         await LoadLogs();
     }
 
@@ -118,11 +288,93 @@
         isLoading = true;
         try
         {
-            logs = await AuditService.GetLogsAsync(null);
+            // Asumiendo que el servicio trae todo o los últimos X registros.
+            // Si tu backend soporta filtros, pásalos aquí.
+            // Por ahora, filtramos en cliente como solicitaste en el análisis previo.
+            allLogs = await AuditService.GetLogsAsync(null);
+            ApplyFilters();
         }
         finally
         {
             isLoading = false;
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        var query = allLogs.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            var term = searchText.ToLower();
+            query = query.Where(x =>
+                (x.UserEmail != null && x.UserEmail.ToLower().Contains(term)) ||
+                (x.Action.ToLower().Contains(term)) ||
+                (x.Entity.ToLower().Contains(term)) ||
+                (x.IpAddress != null && x.IpAddress.Contains(term))
+            );
+        }
+
+        if (dateFrom.HasValue)
+            query = query.Where(x => x.CreatedAt.Date >= dateFrom.Value.Date);
+
+        if (dateTo.HasValue)
+            query = query.Where(x => x.CreatedAt.Date <= dateTo.Value.Date);
+
+        filteredLogs = query.OrderByDescending(x => x.CreatedAt).ToList();
+    }
+
+    private void OpenDetails(AuditLogResponseDto log)
+    {
+        selectedLog = log;
+    }
+
+    // --- Helpers Visuales ---
+
+    private string GetBadgeClass(string action)
+    {
+        action = action.ToLower();
+        if (action.Contains("delete") || action.Contains("remove") || action.Contains("fail") || action.Contains("lock"))
+            return "bg-danger-subtle text-danger border border-danger-subtle"; // Rojo
+
+        if (action.Contains("create") || action.Contains("add") || action.Contains("success") || action.Contains("login"))
+            return "bg-success-subtle text-success border border-success-subtle"; // Verde
+
+        if (action.Contains("update") || action.Contains("edit") || action.Contains("assign"))
+            return "bg-primary-subtle text-primary border border-primary-subtle"; // Azul
+
+        return "bg-secondary-subtle text-secondary border border-secondary-subtle"; // Gris Default
+    }
+
+    private string GetActionIcon(string action)
+    {
+        action = action.ToLower();
+        if (action.Contains("login")) return "bi-box-arrow-in-right";
+        if (action.Contains("logout")) return "bi-power";
+        if (action.Contains("create")) return "bi-plus-lg";
+        if (action.Contains("delete")) return "bi-trash";
+        if (action.Contains("update")) return "bi-pencil";
+        return "bi-activity";
+    }
+
+    private string ShortGuid(string? id)
+    {
+        if (string.IsNullOrEmpty(id) || id.Length < 8) return id ?? "";
+        return id.Substring(0, 8) + "...";
+    }
+
+    private string FormatJson(string json)
+    {
+        if (string.IsNullOrEmpty(json)) return "";
+        try
+        {
+            // Simple indentación si es JSON válido
+            var parsedJson = System.Text.Json.JsonDocument.Parse(json);
+            return System.Text.Json.JsonSerializer.Serialize(parsedJson, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+        catch
+        {
+            return json; // No es JSON, devolver texto plano
         }
     }
 }
