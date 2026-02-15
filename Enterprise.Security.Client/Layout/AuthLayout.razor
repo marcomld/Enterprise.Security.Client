@@ -1,0 +1,25 @@
+﻿@inherits LayoutComponentBase
+
+<div class="auth-layout">
+    @Body
+</div>
+
+<style>
+    /* Aseguramos que el layout ocupe toda la pantalla
+           y reseteamos márgenes para evitar bordes blancos feos
+        */
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden; /* Evita scroll horizontal */
+    }
+
+    .auth-layout {
+        min-height: 100vh;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        background-color: var(--bg-body); /* Usa el color definido en app.css */
+    }
+</style>

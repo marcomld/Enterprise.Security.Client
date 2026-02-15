@@ -1,4 +1,5 @@
 ﻿@page "/roles"
+@using Enterprise.Security.Client.Core.Common
 @using Enterprise.Security.Client.Core.DTOs.Roles
 @using Enterprise.Security.Client.Core.DTOs.Users
 @using Enterprise.Security.Client.Core.Interfaces
@@ -8,205 +9,165 @@
 
 @attribute [Authorize(Policy = Permissions.Roles.View)]
 
-<div class="container-fluid mt-4">
+<div class="container-fluid py-4">
+
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Gestión de Roles</h2>
+        <div>
+            <h2 class="mb-1 fw-bold text-dark">Roles y Permisos</h2>
+            <p class="text-muted mb-0">Define los niveles de acceso y seguridad del sistema.</p>
+        </div>
         <AuthorizeView Policy="@Permissions.Roles.Manage">
             <Authorized>
-                <button class="btn btn-primary" @onclick="OpenCreateRoleModal">
-                    <i class="bi bi-shield-plus"></i> Crear Rol
+                <button class="btn btn-primary shadow-sm d-flex align-items-center gap-2 px-4 py-2" @onclick="OpenCreateRoleModal">
+                    <i class="bi bi-shield-plus"></i>
+                    <span>Nuevo Rol</span>
                 </button>
             </Authorized>
         </AuthorizeView>
     </div>
 
-    @* ... código anterior ... *@
+    @if (!string.IsNullOrEmpty(feedbackMessage))
+    {
+        <div class="alert @(isSuccessFeedback ? "alert-success" : "alert-danger") alert-dismissible fade show shadow-sm border-0 mb-4" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="bi @(isSuccessFeedback ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill") fs-4 me-3"></i>
+                <div>
+                    <strong>@(isSuccessFeedback ? "¡Operación Exitosa!" : "Atención")</strong> @feedbackMessage
+                </div>
+            </div>
+            <button type="button" class="btn-close" @onclick="() => feedbackMessage = null"></button>
+        </div>
+    }
 
-    <div class="row">
-        @foreach (var role in roles)
-        {
-            // Calculamos cuántos usuarios tienen este rol
-            var userCount = allUsers.Count(u => u.Roles.Contains(role.Name));
+    @if (isLoading)
+    {
+        <div class="text-center py-5 my-5">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+            <p class="mt-3 text-muted fw-medium">Cargando roles...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var role in roles)
+            {
+                // Calculamos usuarios (Idealmente esto vendría del Backend para performance, pero lo mantenemos aquí por ahora)
+                var userCount = allUsers.Count(u => u.Roles != null && u.Roles.Contains(role.Name));
 
-            <div class="col-md-4 mb-4">
-                @* Aumenté el margen inferior (mb-4) *@
-                @* 👇 CAMBIO PRINCIPAL DE ESTILO AQUÍ: bg-dark text-white shadow border-secondary *@
-                <div class="card h-100 shadow bg-dark text-white border-secondary">
-                    <div class="card-body d-flex flex-column">
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 border-0 shadow-sm role-card">
 
-                        @* --- Encabezado de la Tarjeta --- *@
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <div>
-                                <h4 class="card-title fw-bold mb-1">
-                                    <i class="bi bi-shield-lock-fill me-2 text-warning"></i>@role.Name
-                                </h4>
-                                @* Badges: Se ven muy bien sobre fondo oscuro *@
-                                @if (role.Name == "Admin")
-                                {
-                                    <span class="badge bg-danger">Sistema</span>
-                                }
-                                else if (role.Name == "User")
-                                {
+                        <div class="card-header border-0 bg-transparent pt-4 pb-0 px-4 d-flex justify-content-between align-items-start">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="role-icon-box">
+                                    <i class="bi bi-shield-lock-fill fs-4 text-white"></i>
+                                </div>
+                                <div>
+                                    <h5 class="fw-bold text-dark mb-0">@role.Name</h5>
+                                    <div class="d-flex gap-2 mt-1">
+                                        @if (role.Name == "Admin")
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Sistema</span>
+                                        }
+                                        else if (role.Name == "User")
+                                        {
 
-                                    <span class="badge bg-secondary">Default</span>
-                                }
-                                else
-                                {
+                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Default</span>
+                                        }
+                                        else
+                                        {
 
-                                    <span class="badge bg-info text-dark">Custom</span>
-                                }
+                                            <span class="badge bg-info-subtle text-info border border-info-subtle text-dark">Personalizado</span>
+                                        }
+                                    </div>
+                                </div>
                             </div>
-                            @* Contador: Usamos bg-white para máximo contraste *@
-                            <span class="badge bg-white text-dark rounded-pill fs-6 py-2 px-3">
-                                <i class="bi bi-people-fill me-1"></i> @userCount
-                            </span>
-                        </div>
 
-                        @* Descripción: Usamos text-white-50 para un gris claro legible *@
-                        <p class="card-text text-white-50 flex-grow-1">@role.Description</p>
-
-                        @* Línea divisoria clara *@
-                        <hr class="border-light opacity-25" />
-
-                        @* --- Botones de Acción --- *@
-                        <div class="d-flex gap-2 mt-auto">
-                            <AuthorizeView Policy="@Permissions.Roles.Assign">
-                                <Authorized>
-                                    @* BOTÓN 1: ASIGNAR (Los botones outline resaltan mucho en fondo oscuro) *@
-                                    <button class="btn btn-outline-success fw-bold flex-grow-1"
-                                            @onclick="() => OpenModal(role, isAssigning: true)"
-                                            title="Agregar usuarios a este rol">
-                                        <i class="bi bi-person-plus-fill me-1"></i> Asignar
-                                    </button>
-
-                                    @* BOTÓN 2: QUITAR *@
-                                    <button class="btn btn-outline-warning fw-bold flex-grow-1"
-                                            @onclick="() => OpenModal(role, isAssigning: false)"
-                                            disabled="@(userCount == 0)"
-                                            title="Ver miembros y quitar rol">
-                                        <i class="bi bi-person-dash-fill me-1"></i> Quitar
-                                    </button>
-                                </Authorized>
-                            </AuthorizeView>                          
-
-                            @* Botón Permisos: Solo visible para Manage *@
-                            <AuthorizeView Policy="@Permissions.Roles.Manage">
-                                <Authorized>
-                                    <button class="btn btn-outline-info px-3"
-                                            @onclick="() => OpenPermissionsModal(role)"
-                                            title="Gestionar Permisos">
-                                        <i class="bi bi-key-fill"></i>
-                                    </button>
-                                </Authorized>
-                            </AuthorizeView>
-
-                            @* BOTÓN 3: BORRAR ROL *@
                             @if (role.Name != "Admin" && role.Name != "User")
                             {
                                 <AuthorizeView Policy="@Permissions.Roles.Manage">
-                                    <Authorized>
-                                        <button class="btn btn-outline-danger px-3"
-                                                @onclick="() => DeleteRole(role)"
-                                                title="Eliminar Rol">
-                                            <i class="bi bi-trash-fill"></i>
+                                    <Authorized Context="authContext">
+                                        <button class="btn btn-link text-muted p-0" @onclick="() => PromptDeleteRole(role)" title="Eliminar Rol">
+                                            <i class="bi bi-trash fs-5 hover-danger"></i>
                                         </button>
                                     </Authorized>
                                 </AuthorizeView>
                             }
                         </div>
+
+                        <div class="card-body px-4 py-3">
+                            <p class="text-muted small mb-3">@role.Description</p>
+
+                            <div class="d-flex justify-content-between align-items-center p-2 rounded bg-light border">
+                                <span class="small fw-bold text-secondary text-uppercase"><i class="bi bi-people me-2"></i>Usuarios</span>
+                                <span class="badge bg-white text-dark border shadow-sm rounded-pill px-3">
+                                    @userCount
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="card-footer bg-transparent border-0 px-4 pb-4 pt-0">
+                            <div class="d-grid gap-2">
+                                <AuthorizeView Policy="@Permissions.Roles.Manage">
+                                    <Authorized Context="authContext">
+                                        <button class="btn btn-outline-primary btn-sm fw-medium d-flex align-items-center justify-content-center gap-2"
+                                                @onclick="() => OpenPermissionsModal(role)">
+                                            <i class="bi bi-key"></i> Gestionar Permisos
+                                        </button>
+                                    </Authorized>
+                                </AuthorizeView>
+
+                                <AuthorizeView Policy="@Permissions.Roles.Assign">
+                                    <Authorized Context="authContext">
+                                        <div class="btn-group w-100" role="group">
+                                            <button type="button" class="btn btn-outline-success btn-sm fw-medium w-50"
+                                                    @onclick="() => OpenAssignModal(role, true)">
+                                                <i class="bi bi-person-plus"></i> Asignar
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm fw-medium w-50"
+                                                    @onclick="() => OpenAssignModal(role, false)"
+                                                    disabled="@(userCount == 0)">
+                                                <i class="bi bi-person-dash"></i> Quitar
+                                            </button>
+                                        </div>
+                                    </Authorized>
+                                </AuthorizeView>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        }
-    </div>
-
-    @* ... resto del código (modales) sigue igual ... *@
+            }
+        </div>
+    }
 </div>
 
-@* --- MODAL UNIFICADO INTELIGENTE --- *@
-@if (showModal)
-{
-    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5)">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header @(isAssignMode ? "bg-success text-white" : "bg-warning text-dark")">
-                    <h5 class="modal-title">
-                        @(isAssignMode ? "Asignar Rol" : "Remover Rol"): <strong>@selectedRole?.Name</strong>
-                    </h5>
-                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
-                </div>
-                <div class="modal-body">
-
-                    @if (filteredUsers.Any())
-                    {
-                        <p>
-                            @(isAssignMode
-                                                ? "Selecciona un usuario para AGREGAR a este rol:"
-                                                : "Selecciona un usuario para QUITAR de este rol:")
-                        </p>
-
-                        <select class="form-select mb-3" @bind="selectedUserId">
-                            <option value="@Guid.Empty">-- Seleccionar Usuario --</option>
-                            @foreach (var u in filteredUsers)
-                            {
-                                <option value="@u.Id">@u.FullName (@u.Email)</option>
-                            }
-                        </select>
-
-                        <div class="d-grid">
-                            @if (isAssignMode)
-                            {
-                                <button class="btn btn-success" @onclick="ExecuteAssign" disabled="@(selectedUserId == Guid.Empty)">
-                                    <i class="bi bi-check-circle"></i> Confirmar Asignación
-                                </button>
-                            }
-                            else
-                            {
-                                <button class="btn btn-warning" @onclick="ExecuteUnassign" disabled="@(selectedUserId == Guid.Empty)">
-                                    <i class="bi bi-x-circle"></i> Confirmar Retiro
-                                </button>
-                            }
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="alert alert-info text-center">
-                            @(isAssignMode
-                                                ? "Todos los usuarios ya tienen este rol."
-                                                : "No hay usuarios con este rol para quitar.")
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
-@* --- MODAL CREAR ROL (El mismo de antes) --- *@
 @if (showCreateModal)
 {
-    @* ... (Usa el mismo código de creación de rol que ya tenías) ... *@
-    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5)">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Nuevo Rol</h5>
-                    <button type="button" class="btn-close" @onclick="CloseCreateModal"></button>
+    <div class="modal fade show d-block backdrop-blur" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content shadow-lg border-0 rounded-4">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold text-dark">Nuevo Rol</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <EditForm Model="@newRoleModel" OnValidSubmit="ExecuteCreateRole">
                         <DataAnnotationsValidator />
-                        <div class="mb-3">
-                            <label>Nombre</label>
-                            <InputText class="form-control" @bind-Value="newRoleModel.RoleName" />
+                        <div class="form-floating mb-3">
+                            <InputText id="roleName" class="form-control" @bind-Value="newRoleModel.RoleName" placeholder="Nombre" />
+                            <label for="roleName">Nombre del Rol</label>
                             <ValidationMessage For="@(() => newRoleModel.RoleName)" />
                         </div>
-                        <div class="mb-3">
-                            <label>Descripción</label>
-                            <InputText class="form-control" @bind-Value="newRoleModel.Description" />
+                        <div class="form-floating mb-3">
+                            <InputText id="roleDesc" class="form-control" @bind-Value="newRoleModel.Description" placeholder="Descripción" />
+                            <label for="roleDesc">Descripción</label>
                             <ValidationMessage For="@(() => newRoleModel.Description)" />
                         </div>
-                        <button type="submit" class="btn btn-primary w-100">Guardar</button>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary shadow-sm" disabled="@isProcessing">
+                                @(isProcessing ? "Creando..." : "Crear Rol")
+                            </button>
+                        </div>
                     </EditForm>
                 </div>
             </div>
@@ -214,50 +175,64 @@
     </div>
 }
 
-@if (showPermissionsModal)
+@if (showPermissionsModal && selectedRole != null)
 {
-    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.6)">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header bg-dark text-white">
-                    <h5 class="modal-title"><i class="bi bi-shield-check me-2"></i>Permisos: @selectedRole?.Name</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="ClosePermissionsModal"></button>
+    <div class="modal fade show d-block backdrop-blur" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content shadow-lg border-0 rounded-4">
+                <div class="modal-header border-bottom-0 bg-light">
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark">Configurar Permisos</h5>
+                        <p class="text-muted small mb-0">Rol: <span class="fw-bold text-primary">@selectedRole.Name</span></p>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
                 </div>
-                <div class="modal-body bg-light">
-                    @* Agrupamos por Módulo *@
-                    @foreach (var group in rolePermissions.GroupBy(p => p.Module))
+
+                <div class="modal-body p-4">
+                    @if (rolePermissions == null || !rolePermissions.Any())
                     {
-                        <div class="card mb-3 shadow-sm">
-                            <div class="card-header fw-bold text-primary">
-                                @group.Key.ToUpper()
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    @foreach (var permission in group)
-                                    {
-                                        <div class="col-md-6 mb-2">
-                                            <div class="form-check form-switch">
-                                                @* Checkbox vinculado a IsSelected *@
-                                                <input class="form-check-input" type="checkbox"
-                                                       checked="@permission.IsSelected"
-                                                       @onchange="@(e => TogglePermission(permission, e.Value))"
-                                                       id="perm_@permission.PermissionId">
-                                                <label class="form-check-label" for="perm_@permission.PermissionId">
-                                                    <strong>@permission.Code</strong>
-                                                    <div class="text-muted small">@permission.Description</div>
-                                                </label>
-                                            </div>
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
+                            <span class="ms-2 text-muted">Cargando permisos...</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="row g-3">
+                            @foreach (var group in rolePermissions.GroupBy(p => p.Module))
+                            {
+                                <div class="col-md-6">
+                                    <div class="card h-100 border bg-light-subtle">
+                                        <div class="card-header bg-transparent fw-bold text-uppercase small text-muted border-bottom-0 d-flex justify-content-between">
+                                            <span>@group.Key</span>
+                                            <span class="badge bg-secondary rounded-pill">@group.Count()</span>
                                         </div>
-                                    }
+                                        <div class="card-body pt-0">
+                                            @foreach (var perm in group)
+                                            {
+                                                <div class="form-check form-switch my-2">
+                                                    <input class="form-check-input" type="checkbox"
+                                                           id="perm_@perm.PermissionId"
+                                                           checked="@perm.IsSelected"
+                                                           @onchange="@(e => TogglePermission(perm, e.Value))">
+                                                    <label class="form-check-label lh-1" for="perm_@perm.PermissionId">
+                                                        <span class="fw-semibold d-block text-dark" style="font-size: 0.9rem;">@perm.Code</span>
+                                                        <small class="text-muted" style="font-size: 0.75rem;">@perm.Description</small>
+                                                    </label>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            }
                         </div>
                     }
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="ClosePermissionsModal">Cancelar</button>
-                    <button class="btn btn-primary" @onclick="SavePermissions">
-                        <i class="bi bi-save me-1"></i> Guardar Cambios
+
+                <div class="modal-footer border-top-0 pt-0 pb-4 px-4 bg-light">
+                    <button type="button" class="btn btn-light text-muted" @onclick="CloseModals">Cancelar</button>
+                    <button type="button" class="btn btn-primary px-4 shadow-sm" @onclick="SavePermissions" disabled="@isProcessing">
+                        @(isProcessing ? "Guardando..." : "Guardar Cambios")
                     </button>
                 </div>
             </div>
@@ -265,22 +240,180 @@
     </div>
 }
 
+@if (showAssignModal && selectedRole != null)
+{
+    <div class="modal fade show d-block backdrop-blur" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0 rounded-4">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark">@(isAssignMode ? "Asignar Usuarios" : "Remover Usuarios")</h5>
+                        <p class="text-muted small mb-0">Rol: <span class="fw-bold text-primary">@selectedRole.Name</span></p>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+
+                <div class="modal-body p-4">
+                    @if (filteredUsers.Any())
+                    {
+                        <div class="mb-3">
+                            <input type="text" class="form-control" placeholder="Buscar en la lista..." @bind="userSearchTerm" @bind:event="oninput" />
+                        </div>
+
+                        <div class="list-group list-group-flush border rounded-3 overflow-auto custom-scroll" style="max-height: 250px;">
+                            @foreach (var user in FilteredUsersDisplay)
+                            {
+                                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3"
+                                        @onclick="() => SelectUserForAction(user)">
+                                    <div>
+                                        <div class="fw-semibold text-dark">@user.FullName</div>
+                                        <div class="small text-muted">@user.Email</div>
+                                    </div>
+                                    <i class="bi bi-chevron-right text-muted"></i>
+                                </button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-4 bg-light rounded-3">
+                            <i class="bi bi-info-circle text-muted fs-4 mb-2 d-block"></i>
+                            <p class="text-muted small mb-0">
+                                @(isAssignMode ? "Todos los usuarios ya tienen este rol." : "Nadie tiene este rol asignado.")
+                            </p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (userToAction != null && selectedRole != null)
+{
+    <div class="modal fade show d-block backdrop-blur" tabindex="-1" style="z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content shadow rounded-4 border-0">
+                <div class="modal-body text-center p-4">
+                    <div class="mb-3">
+                        <div class="rounded-circle @(isAssignMode ? "bg-success-subtle text-success" : "bg-warning-subtle text-warning") d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                            <i class="bi @(isAssignMode ? "bi-person-plus-fill" : "bi-person-dash-fill") fs-2"></i>
+                        </div>
+                    </div>
+                    <h5 class="fw-bold">¿Confirmar?</h5>
+                    <p class="text-muted small">
+                        @(isAssignMode ? "Asignarás" : "Quitarás") el rol <strong>@selectedRole.Name</strong> <br> al usuario <strong>@userToAction.FullName</strong>.
+                    </p>
+                    <div class="d-grid gap-2 mt-4">
+                        <button class="btn @(isAssignMode ? "btn-success" : "btn-warning")" @onclick="ExecuteUserAction">Sí, Confirmar</button>
+                        <button class="btn btn-link text-decoration-none text-muted btn-sm" @onclick="() => userToAction = null">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (roleToDelete != null)
+{
+    <div class="modal fade show d-block backdrop-blur" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content shadow rounded-4 border-0">
+                <div class="modal-body text-center p-4">
+                    <div class="mb-3">
+                        <div class="rounded-circle bg-danger-subtle text-danger d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                            <i class="bi bi-trash fs-2"></i>
+                        </div>
+                    </div>
+                    <h5 class="fw-bold">¿Eliminar Rol?</h5>
+                    <p class="text-muted small">
+                        Se eliminará <strong>@roleToDelete.Name</strong> y se revocará a todos los usuarios.
+                    </p>
+                    <div class="d-grid gap-2 mt-4">
+                        <button class="btn btn-danger" @onclick="ExecuteDeleteRole">Sí, Eliminar</button>
+                        <button class="btn btn-link text-decoration-none text-muted btn-sm" @onclick="() => roleToDelete = null">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    /* Estilos Específicos */
+    .backdrop-blur {
+        background-color: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+    }
+
+    .role-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+        .role-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-md) !important;
+        }
+
+    .role-icon-box {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, var(--brand-primary) 0%, #1e293b 100%);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .hover-danger:hover {
+        color: #dc2626 !important;
+    }
+
+    .custom-scroll::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .custom-scroll::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+        border-radius: 4px;
+    }
+
+    .bg-info-subtle {
+        background-color: #e0f2fe;
+    }
+    /* Slate light blue */
+    .border-info-subtle {
+        border-color: #bae6fd;
+    }
+</style>
+
 @code {
+    // --- VARIABLES DE ESTADO ---
     private List<RoleResponseDto> roles = new();
     private List<UserResponseDto> allUsers = new();
+    private bool isLoading = true;
+    private bool isProcessing = false;
 
-    // Variables de estado
-    private bool showModal = false;
-    private bool isAssignMode = true; // True = Asignar, False = Quitar
-    private RoleResponseDto? selectedRole;
-    private Guid selectedUserId;
+    // Feedback
+    private string? feedbackMessage;
+    private bool isSuccessFeedback;
 
-    // Lista filtrada dinámica
-    private List<UserResponseDto> filteredUsers = new();
-
-    // Variables creación
+    // Modales
     private bool showCreateModal = false;
+    private bool showPermissionsModal = false;
+    private bool showAssignModal = false;
+
+    // Modelos y Selecciones
     private CreateRoleDto newRoleModel = new();
+    private RoleResponseDto? selectedRole;
+    private RoleResponseDto? roleToDelete;
+    private UserResponseDto? userToAction; // Usuario seleccionado para asignar/quitar
+
+    private List<PermissionDto> rolePermissions = new();
+    private List<UserResponseDto> filteredUsers = new(); // Lista base filtrada por lógica (tiene/no tiene rol)
+    private string userSearchTerm = ""; // Para filtrar visualmente la lista base
+    private bool isAssignMode = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -289,138 +422,148 @@
 
     private async Task LoadData()
     {
-        // Cargamos roles y usuarios (ahora los usuarios traen sus roles)
-        roles = await RoleService.GetAllAsync();
-        allUsers = await UserService.GetAllAsync();
-    }
-
-    // Abre el modal y calcula la lista filtrada
-    private void OpenModal(RoleResponseDto role, bool isAssigning)
-    {
-        selectedRole = role;
-        isAssignMode = isAssigning;
-        selectedUserId = Guid.Empty;
-
-        if (isAssigning)
+        isLoading = true;
+        try
         {
-            // Mostrar usuarios que NO tienen el rol
-            filteredUsers = allUsers.Where(u => !u.Roles.Contains(role.Name)).ToList();
+            roles = await RoleService.GetAllAsync();
+            allUsers = await UserService.GetAllAsync();
         }
-        else
+        catch (Exception ex)
         {
-            // Mostrar usuarios que SÍ tienen el rol (Ver miembros)
-            filteredUsers = allUsers.Where(u => u.Roles.Contains(role.Name)).ToList();
+            ShowError("Error cargando datos: " + ex.Message);
         }
-
-        showModal = true;
-    }
-
-    private void CloseModals() => showModal = false;
-    private void CloseCreateModal() => showCreateModal = false;
-
-    private async Task ExecuteAssign()
-    {
-        if (selectedRole == null || selectedUserId == Guid.Empty) return;
-
-        var dto = new AssignRoleDto(selectedUserId, selectedRole.Name);
-        var error = await RoleService.AssignAsync(dto);
-
-        if (string.IsNullOrEmpty(error))
+        finally
         {
-            await HandleSuccess("Rol asignado correctamente.");
-        }
-        else
-        {
-            await JS.InvokeVoidAsync("alert", error);
+            isLoading = false;
         }
     }
 
-    private async Task ExecuteUnassign()
-    {
-        if (selectedRole == null || selectedUserId == Guid.Empty) return;
-
-        var dto = new AssignRoleDto(selectedUserId, selectedRole.Name);
-        var error = await RoleService.UnassignAsync(dto);
-
-        if (string.IsNullOrEmpty(error))
-        {
-            await HandleSuccess("Rol removido correctamente.");
-        }
-        else
-        {
-            await JS.InvokeVoidAsync("alert", error);
-        }
-    }
-
-    private async Task HandleSuccess(string message)
-    {
-        await JS.InvokeVoidAsync("alert", message);
-        showModal = false;
-        await LoadData(); // Recarga vital para actualizar los filtros y contadores
-    }
-
-    // ... Métodos CreateRole y DeleteRole que ya tenías ...
+    // --- CREAR ROL ---
     private void OpenCreateRoleModal() { newRoleModel = new(); showCreateModal = true; }
 
     private async Task ExecuteCreateRole()
     {
+        isProcessing = true;
         var error = await RoleService.CreateAsync(newRoleModel);
-        if (string.IsNullOrEmpty(error)) { showCreateModal = false; await LoadData(); }
-        else { await JS.InvokeVoidAsync("alert", error); }
+        if (string.IsNullOrEmpty(error))
+        {
+            ShowSuccess("Rol creado exitosamente.");
+            CloseModals();
+            await LoadData();
+        }
+        else ShowError(error);
+        isProcessing = false;
     }
 
-    private async Task DeleteRole(RoleResponseDto role)
+    // --- ELIMINAR ROL ---
+    private void PromptDeleteRole(RoleResponseDto role) { roleToDelete = role; }
+
+    private async Task ExecuteDeleteRole()
     {
-        bool conf = await JS.InvokeAsync<bool>("confirm", "Eliminar rol?");
-        if (conf) { await RoleService.DeleteAsync(role.Id); await LoadData(); }
+        if (roleToDelete == null) return;
+        var error = await RoleService.DeleteAsync(roleToDelete.Id);
+        if (string.IsNullOrEmpty(error))
+        {
+            ShowSuccess("Rol eliminado.");
+            roleToDelete = null;
+            await LoadData();
+        }
+        else ShowError(error);
     }
 
-
-    // Variables
-    private bool showPermissionsModal = false;
-    private List<PermissionDto> rolePermissions = new();
-
+    // --- PERMISOS ---
     private async Task OpenPermissionsModal(RoleResponseDto role)
     {
         selectedRole = role;
-        // 1. Cargar permisos desde la API
-        rolePermissions = await RoleService.GetPermissionsAsync(role.Id);
         showPermissionsModal = true;
+        // Cargar permisos desde API
+        rolePermissions = await RoleService.GetPermissionsAsync(role.Id);
     }
 
-    private void ClosePermissionsModal() => showPermissionsModal = false;
-
-    // 2. Manejar el cambio del Checkbox
-    private void TogglePermission(PermissionDto permission, object? checkValue)
+    private void TogglePermission(PermissionDto perm, object? val)
     {
-        if (checkValue is bool isChecked)
-        {
-            permission.IsSelected = isChecked;
-        }
+        if (val is bool isChecked) perm.IsSelected = isChecked;
     }
 
-    // 3. Guardar
     private async Task SavePermissions()
     {
         if (selectedRole == null) return;
+        isProcessing = true;
 
         var dto = new UpdateRolePermissionsDto
         {
             RoleId = selectedRole.Id,
-            // Filtramos solo los True
             PermissionIds = rolePermissions.Where(p => p.IsSelected).Select(p => p.PermissionId).ToList()
         };
 
         var error = await RoleService.UpdatePermissionsAsync(dto);
+        if (string.IsNullOrEmpty(error))
+        {
+            ShowSuccess("Permisos actualizados.");
+            CloseModals();
+        }
+        else ShowError(error);
+        isProcessing = false;
+    }
+
+    // --- ASIGNAR USUARIOS ---
+    private void OpenAssignModal(RoleResponseDto role, bool assignMode)
+    {
+        selectedRole = role;
+        isAssignMode = assignMode;
+        userSearchTerm = "";
+
+        // Lógica de filtrado inicial
+        if (assignMode)
+            filteredUsers = allUsers.Where(u => u.Roles == null || !u.Roles.Contains(role.Name)).ToList();
+        else
+            filteredUsers = allUsers.Where(u => u.Roles != null && u.Roles.Contains(role.Name)).ToList();
+
+        showAssignModal = true;
+    }
+
+    // Propiedad para el filtrado visual en tiempo real
+    private IEnumerable<UserResponseDto> FilteredUsersDisplay =>
+        string.IsNullOrWhiteSpace(userSearchTerm)
+        ? filteredUsers
+        : filteredUsers.Where(u => u.FullName.Contains(userSearchTerm, StringComparison.OrdinalIgnoreCase));
+
+    private void SelectUserForAction(UserResponseDto user)
+    {
+        userToAction = user; // Esto dispara el segundo modal de confirmación
+    }
+
+    private async Task ExecuteUserAction()
+    {
+        if (selectedRole == null || userToAction == null) return;
+
+        var dto = new AssignRoleDto(userToAction.Id, selectedRole.Name);
+        string error;
+
+        if (isAssignMode) error = await RoleService.AssignAsync(dto);
+        else error = await RoleService.UnassignAsync(dto);
 
         if (string.IsNullOrEmpty(error))
         {
-            await JS.InvokeVoidAsync("alert", "Permisos actualizados correctamente.");
-            showPermissionsModal = false;
+            ShowSuccess(isAssignMode ? "Usuario asignado." : "Usuario removido.");
+            userToAction = null;
+            CloseModals(); // Cerramos todo para forzar recarga limpia
+            await LoadData();
         }
-        else
-        {
-            await JS.InvokeVoidAsync("alert", "Error: " + error);
-        }
+        else ShowError(error);
     }
+
+
+    // --- HELPERS ---
+    private void CloseModals()
+    {
+        showCreateModal = false;
+        showPermissionsModal = false;
+        showAssignModal = false;
+        roleToDelete = null;
+        userToAction = null;
+    }
+
+    private void ShowSuccess(string msg) { feedbackMessage = msg; isSuccessFeedback = true; }
+    private void ShowError(string msg) { feedbackMessage = msg; isSuccessFeedback = false; }
 }

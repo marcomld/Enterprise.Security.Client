@@ -1,66 +1,239 @@
 ﻿@page "/login"
+@layout Enterprise.Security.Client.Layout.AuthLayout
 @using Enterprise.Security.Client.Core.DTOs.Auth
 @using Enterprise.Security.Client.Core.Common
 @using Enterprise.Security.Client.Infrastructure.Auth
 @using Microsoft.AspNetCore.Components.Authorization
-@*@layout Layout.LoginLayout
-@* 👆 (Opcional) Si quisieras un layout limpio sin menús laterales para el login *@
 
 @inject HttpClient Http
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow">
-                <div class="card-body">
-                    <h3 class="text-center mb-4">Iniciar Sesión</h3>
+<div class="container-fluid p-0">
+    <div class="row g-0 min-vh-100">
+
+        <div class="col-lg-6 d-none d-lg-flex flex-column justify-content-center align-items-center position-relative overflow-hidden">
+
+            <div class="absolute-fill bg-base"></div>
+
+            <div class="login-shape shape-1"></div>
+            <div class="login-shape shape-2"></div>
+
+            <div class="absolute-fill grid-pattern"></div>
+
+            <div class="position-relative z-2 text-center p-5 glass-card mx-5">
+                <div class="mb-4 d-inline-block p-3 rounded-circle bg-white bg-opacity-10 text-white border border-white border-opacity-25 shadow-lg">
+                    <i class="bi bi-shield-lock-fill display-4"></i>
+                </div>
+                <h1 class="display-5 fw-bold mb-3 text-white">Enterprise Security</h1>
+                <p class="lead text-white-50">
+                    Acceso seguro y gestión centralizada.
+                </p>
+            </div>
+        </div>
+
+        <div class="col-lg-6 d-flex align-items-center justify-content-center bg-light-gray position-relative">
+
+            <div class="position-absolute top-0 end-0 p-5 mt-5 me-5 d-none d-md-block opacity-25">
+                <svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="50" fill="#E2E8F0" />
+                </svg>
+            </div>
+
+            <div class="login-card shadow-lg w-100 mx-3 mx-md-5" style="max-width: 480px;">
+
+                <div class="card-accent-bar"></div>
+
+                <div class="p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <h3 class="fw-bold text-dark">Bienvenido</h3>
+                        <p class="text-muted small">Ingresa tus credenciales para continuar.</p>
+                    </div>
 
                     @if (!string.IsNullOrEmpty(errorMessage))
                     {
-                        <div class="alert alert-danger" role="alert">
-                            @errorMessage
+                        <div class="alert alert-danger d-flex align-items-center mb-4 border-0 shadow-sm rounded-3 small" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <div>@errorMessage</div>
                         </div>
                     }
 
                     <EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
                         <DataAnnotationsValidator />
 
-                        <div class="mb-3">
-                            <label for="email" class="form-label">Email</label>
-                            <InputText id="email" class="form-control" @bind-Value="loginModel.Email" placeholder="admin@enterprise.com" />
+                        <div class="form-floating mb-3">
+                            <InputText id="email" class="form-control" @bind-Value="loginModel.Email" placeholder="name@example.com" />
+                            <label for="email">Correo Electrónico</label>
                             <ValidationMessage For="@(() => loginModel.Email)" />
                         </div>
 
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Contraseña</label>
-                            <InputText type="password" id="password" class="form-control" @bind-Value="loginModel.Password" />
+                        <div class="form-floating mb-4">
+                            <InputText type="password" id="password" class="form-control" @bind-Value="loginModel.Password" placeholder="Password" />
+                            <label for="password">Contraseña</label>
                             <ValidationMessage For="@(() => loginModel.Password)" />
                         </div>
 
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="rememberMe">
+                                <label class="form-check-label text-muted small" for="rememberMe">Recordarme</label>
+                            </div>
+                            <a href="#" class="text-decoration-none small fw-semibold link-accent">¿Olvidaste tu contraseña?</a>
+                        </div>
+
+                        <div class="d-grid gap-2 mb-4">
+                            <button type="submit" class="btn btn-primary btn-lg shadow-hover fw-semibold" disabled="@isLoading">
                                 @if (isLoading)
                                 {
-                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                    <span> Cargando...</span>
+                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <span>Verificando...</span>
                                 }
                                 else
                                 {
-                                    <span>Ingresar</span>
+                                    <span>Iniciar Sesión</span>
                                 }
                             </button>
-                            <a href="Register" class="btn btn-link text-decoration-none">¿No tienes una cuenta? Regístrate</a>
+                        </div>
+
+                        <div class="text-center mt-4">
+                            <span class="text-muted small">¿No tienes cuenta?</span>
+                            <a href="register" class="fw-bold text-decoration-none ms-1 link-accent">Regístrate</a>
                         </div>
                     </EditForm>
                 </div>
+            </div>
+
+            <div class="position-absolute bottom-0 w-100 text-center pb-3">
+                <small class="text-muted-light" style="font-size: 0.75rem;">&copy; @DateTime.Now.Year Enterprise Security</small>
             </div>
         </div>
     </div>
 </div>
 
+<style>
+    /* --- UTILITIES --- */
+    .absolute-fill {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    /* --- LEFT SIDE (BRANDING) --- */
+    .bg-base {
+        background: radial-gradient(circle at bottom left, #0f172a, #1e293b);
+        z-index: 0;
+    }
+
+    .grid-pattern {
+        background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+        background-size: 30px 30px;
+        opacity: 0.5;
+        z-index: 1;
+    }
+
+    .glass-card {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 1.5rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    /* Blobs animados */
+    .login-shape {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(90px);
+        z-index: 0;
+        opacity: 0.6;
+        animation: floatShape 12s infinite ease-in-out alternate;
+    }
+
+    .shape-1 {
+        width: 500px;
+        height: 500px;
+        background: var(--brand-accent);
+        top: -15%;
+        left: -15%;
+    }
+
+    .shape-2 {
+        width: 400px;
+        height: 400px;
+        background: #7c3aed; /* Violeta */
+        bottom: -10%;
+        right: -10%;
+        animation-delay: -5s;
+    }
+
+    @@keyframes floatShape {
+        0% {
+            transform: translate(0, 0);
+        }
+
+        100% {
+            transform: translate(40px, 20px);
+        }
+    }
+
+    /* --- RIGHT SIDE (FORM) --- */
+
+    /* Fondo ligeramente gris para diferenciar de la tarjeta blanca */
+    .bg-light-gray {
+        background-color: #f8fafc;
+    }
+
+    /* La tarjeta contenedora */
+    .login-card {
+        background-color: #ffffff;
+        border-radius: 1rem; /* Bordes redondeados modernos */
+        overflow: hidden; /* Para que la barra superior respete el borde */
+        border: 1px solid rgba(0,0,0,0.05); /* Borde sutil */
+    }
+
+    /* EL DETALLE MÍNIMO: Barra superior con gradiente */
+    .card-accent-bar {
+        height: 4px;
+        width: 100%;
+        background: linear-gradient(90deg, var(--brand-accent) 0%, #7c3aed 100%);
+    }
+
+    /* Link Accent Color */
+    .link-accent {
+        color: var(--brand-accent);
+        transition: color 0.2s;
+    }
+
+        .link-accent:hover {
+            color: #1d4ed8;
+            text-decoration: underline !important;
+        }
+
+    /* Input Focus State - Conexión sutil con el lado izquierdo */
+    .form-control:focus {
+        border-color: var(--brand-accent);
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    }
+
+    .shadow-hover {
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+        .shadow-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+        }
+
+    .text-muted-light {
+        color: #94a3b8;
+    }
+
+</style>
+
 @code {
+    // ... Tu lógica C# intacta ...
     private LoginRequestDto loginModel = new();
     private string? errorMessage;
     private bool isLoading = false;
@@ -72,36 +245,25 @@
 
         try
         {
-            // 1. Llamada a TU API (Endpoint exacto según AuthController)
-            // POST: api/auth/login
             var response = await Http.PostAsJsonAsync("api/auth/login", loginModel);
 
-            // 1. Manejo específico del Rate Limit (429)
-            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests) // 429
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
             {
                 errorMessage = "Has excedido el número de intentos. Por favor espera 1 minuto.";
                 isLoading = false;
                 return;
             }
 
-            // 2. Si no es 429, seguimos con la lógica normal de leer JSON
             var result = await response.Content.ReadFromJsonAsync<ApiResponse<LoginResponseDto>>();
 
             if (result != null && result.Success && result.Data != null)
             {
-                // 3. Obtener nuestro AuthProvider personalizado
-                // Hacemos cast porque la interfaz genérica no tiene el método 'LoginAsync'
                 var customAuthProvider = (CustomAuthenticationStateProvider)AuthStateProvider;
-
-                // 4. Notificar al sistema que entramos (Guarda Token y Notifica estado)
                 await customAuthProvider.LoginAsync(result.Data);
-
-                // 5. Redirigir al Home o Dashboard
                 Navigation.NavigateTo("/");
             }
             else
             {
-                // Mostrar error del Backend (ej: "Cuenta bloqueada", "Credenciales inválidas")
                 errorMessage = result?.Error ?? "Ocurrió un error al iniciar sesión.";
             }
         }
