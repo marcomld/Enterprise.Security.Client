@@ -1,0 +1,9 @@
+﻿@inject NavigationManager Navigation
+
+@code {
+    protected override void OnInitialized()
+    {
+        // Redirige al login de inmediato
+        Navigation.NavigateTo("/login", true);
+    }
+}

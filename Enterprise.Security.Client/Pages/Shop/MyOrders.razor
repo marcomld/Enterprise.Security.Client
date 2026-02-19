@@ -1,0 +1,246 @@
+﻿@page "/my-orders"
+@using Enterprise.Security.Client.Core.DTOs.Orders
+@using Enterprise.Security.Client.Core.Interfaces
+@using Enterprise.Security.Client.Core.Common
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject IOrderService OrderService
+
+<div class="container-fluid py-4">
+    <div class="d-flex align-items-center mb-4 gap-3">
+        <h2 class="fw-bold text-dark mb-0">Mis Pedidos</h2>
+        @if (orders.Any())
+        {
+            <span class="badge bg-light text-secondary border rounded-pill px-3 py-2">
+                @orders.Count en total
+            </span>
+        }
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5 my-5">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+            <p class="mt-3 text-muted fw-medium">Cargando tu historial...</p>
+        </div>
+    }
+    else if (!orders.Any())
+    {
+        <div class="card border-0 shadow-sm" style="border-radius: var(--radius-lg);">
+            <div class="card-body text-center py-5">
+                <div class="mb-4">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle" style="width: 100px; height: 100px;">
+                        <i class="bi bi-bag-x text-muted" style="font-size: 3rem;"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold text-dark">No tienes pedidos aún</h4>
+                <p class="text-muted mb-4">Explora nuestro catálogo y realiza tu primera compra.</p>
+                <a href="catalog" class="btn btn-primary px-4 py-2 shadow-sm d-inline-flex align-items-center gap-2">
+                    <i class="bi bi-shop"></i> Ir al Catálogo
+                </a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0 overflow-hidden" style="border-radius: var(--radius-lg);">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-uppercase small text-muted fw-bold">
+                        <tr>
+                            <th class="ps-4 py-3 border-0">Orden #</th>
+                            <th class="py-3 border-0">Fecha</th>
+                            <th class="py-3 border-0">Items</th>
+                            <th class="py-3 border-0">Total</th>
+                            <th class="py-3 border-0">Estado</th>
+                            <th class="text-end pe-4 py-3 border-0">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in orders)
+                        {
+                            <tr class="border-bottom-0">
+                                <td class="ps-4 fw-bold font-monospace text-dark">
+                                    @order.OrderNumber
+                                </td>
+                                <td class="text-muted small">
+                                    <div class="fw-medium text-dark">@order.OrderDate.ToLocalTime().ToString("MMM dd, yyyy")</div>
+                                    <div>@order.OrderDate.ToLocalTime().ToString("HH:mm")</div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-secondary border fw-normal">@order.TotalItems prod.</span>
+                                </td>
+                                <td class="fw-bold text-dark">@order.TotalAmount.ToString("C")</td>
+                                <td>
+                                    <span class="badge @GetStatusBadgeClass(order.Status) rounded-pill px-3">
+                                        @TranslateStatus(order.Status)
+                                    </span>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <button class="btn btn-sm btn-light text-primary border shadow-sm fw-medium" @onclick="() => ShowDetails(order)">
+                                        Ver Detalles
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@* --- MODAL DE DETALLES --- *@
+@if (selectedOrder != null)
+{
+    <div class="modal fade show d-block backdrop-blur" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content shadow-lg border-0 rounded-4">
+                <div class="modal-header border-bottom-0 bg-light pb-3">
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-1">Detalle del Pedido</h5>
+                        <div class="small text-muted font-monospace">Orden #@selectedOrder.OrderNumber</div>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="() => selectedOrder = null"></button>
+                </div>
+                <div class="modal-body p-4">
+
+                    <div class="row mb-4 g-3">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded-3 border">
+                                <span class="d-block small text-muted text-uppercase fw-bold mb-1">Estado Actual</span>
+                                <span class="badge @GetStatusBadgeClass(selectedOrder.Status) fs-6">
+                                    @TranslateStatus(selectedOrder.Status)
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded-3 border">
+                                <span class="d-block small text-muted text-uppercase fw-bold mb-1">Total Pagado</span>
+                                <span class="fs-4 fw-bold text-primary">@selectedOrder.TotalAmount.ToString("C")</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(selectedOrder.Notes))
+                    {
+                        <div class="alert bg-warning-subtle text-dark border-warning-subtle mb-4">
+                            <h6 class="alert-heading fw-bold mb-1"><i class="bi bi-journal-text me-2"></i>Notas / Instrucciones:</h6>
+                            <p class="mb-0 small">@selectedOrder.Notes</p>
+                        </div>
+                    }
+
+                    <h6 class="text-uppercase text-muted small fw-bold mb-3">Artículos (@selectedOrder.TotalItems)</h6>
+                    <div class="table-responsive border rounded-3">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light text-muted small">
+                                <tr>
+                                    <th class="ps-3 border-0">Producto</th>
+                                    <th class="text-center border-0">Cant.</th>
+                                    <th class="text-end border-0">Precio Unit.</th>
+                                    <th class="text-end pe-3 border-0">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in selectedOrder.Items)
+                                {
+                                    <tr class="border-bottom-0 border-top">
+                                        <td class="ps-3 fw-medium text-dark">@item.ProductName</td>
+                                        <td class="text-center">@item.Quantity</td>
+                                        <td class="text-end text-muted">@item.UnitPrice.ToString("C")</td>
+                                        <td class="text-end pe-3 fw-bold">@item.Total.ToString("C")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 pb-4 px-4">
+                    <button type="button" class="btn btn-secondary w-100" @onclick="() => selectedOrder = null">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .backdrop-blur {
+        background-color: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+    }
+
+    /* Badges Subtle para estados */
+    .bg-warning-subtle {
+        background-color: #fef3c7;
+        color: #b45309;
+    }
+
+    .border-warning-subtle {
+        border-color: #fde68a;
+    }
+
+    .bg-success-subtle {
+        background-color: #dcfce7;
+        color: #15803d;
+    }
+
+    .bg-danger-subtle {
+        background-color: #fee2e2;
+        color: #b91c1c;
+    }
+
+    .bg-secondary-subtle {
+        background-color: #f1f5f9;
+        color: #475569;
+    }
+</style>
+
+@code {
+    private List<OrderResponseDto> orders = new();
+    private bool isLoading = true;
+    private OrderResponseDto? selectedOrder;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        var result = await OrderService.GetMyOrdersAsync();
+        if (result.Success)
+        {
+            orders = result.Data!.OrderByDescending(x => x.OrderDate).ToList();
+        }
+        isLoading = false;
+    }
+
+    private async Task ShowDetails(OrderResponseDto order)
+    {
+        var result = await OrderService.GetOrderByIdAsync(order.Id);
+        if (result.Success)
+        {
+            selectedOrder = result.Data;
+        }
+    }
+
+    // Helpers Visuales
+    private string GetStatusBadgeClass(string status)
+    {
+        return status.ToLower() switch
+        {
+            "pending" => "bg-warning-subtle text-warning border border-warning-subtle",
+            "approved" => "bg-success-subtle text-success border border-success-subtle",
+            "rejected" or "cancelled" => "bg-danger-subtle text-danger border border-danger-subtle",
+            _ => "bg-secondary-subtle text-secondary border border-secondary-subtle"
+        };
+    }
+
+    private string TranslateStatus(string status)
+    {
+        return status.ToLower() switch
+        {
+            "pending" => "En Revisión",
+            "approved" => "Aprobado",
+            "rejected" => "Rechazado",
+            "cancelled" => "Cancelado",
+            _ => status
+        };
+    }
+}

@@ -1,0 +1,372 @@
+﻿@page "/direct-sale"
+@using Enterprise.Security.Client.Core.DTOs.Invoicing
+@using Enterprise.Security.Client.Core.DTOs.Inventory.Products
+@using Enterprise.Security.Client.Core.DTOs.Users
+@using Enterprise.Security.Client.Core.Interfaces
+@using Enterprise.Security.Client.Core.Common
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = Permissions.Invoices.CreateDirect)]
+@inject IInvoiceService InvoiceService
+@inject IProductService ProductService
+@inject IUserService UserService
+
+<div class="container-fluid py-4 h-100 d-flex flex-column">
+    
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold text-dark mb-0">🏪 Terminal Punto de Venta (POS)</h3>
+    </div>
+
+    @if (!string.IsNullOrEmpty(feedbackMessage))
+    {
+        <div class="position-fixed top-0 end-0 p-3" style="z-index: 1050">
+            <div class="toast show align-items-center text-white @(isSuccessFeedback ? "bg-success" : "bg-danger") border-0 shadow-lg" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body d-flex align-items-center">
+                        <i class="bi @(isSuccessFeedback ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill") fs-5 me-2"></i>
+                        @feedbackMessage
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" @onclick="() => feedbackMessage = null"></button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5 flex-grow-1 d-flex flex-column justify-content-center">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Iniciando sistema POS...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4 flex-grow-1 pb-3">
+            
+            <div class="col-lg-7 col-xl-8 d-flex flex-column h-100">
+                
+                <div class="card shadow-sm border-0 mb-3" style="border-radius: var(--radius-md);">
+                    <div class="card-body p-3">
+                        <div class="input-group mb-3">
+                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0 bg-light form-control-lg" 
+                                   placeholder="Buscar producto..." 
+                                   @bind="productSearchTerm" @bind:event="oninput" />
+                        </div>
+                        
+                        <div class="d-flex gap-2 overflow-auto pb-1" style="scrollbar-width: thin;">
+                            <button class="btn btn-sm rounded-pill px-3 @(string.IsNullOrEmpty(selectedCategory) ? "btn-primary shadow-sm" : "btn-light text-muted border")"
+                                    @onclick='() => selectedCategory = ""'>
+                                Todas
+                            </button>
+                            @foreach (var cat in activeProducts.Select(p => p.CategoryName).Distinct().Where(c => !string.IsNullOrEmpty(c)))
+                            {
+                                <button class="btn btn-sm rounded-pill text-nowrap px-3 @(selectedCategory == cat ? "btn-primary shadow-sm" : "btn-light text-muted border")"
+                                        @onclick="() => selectedCategory = cat">
+                                    @cat
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex-grow-1 overflow-auto pe-2" style="max-height: calc(100vh - 250px);">
+                    <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3">
+                        @foreach (var prod in FilteredActiveProducts)
+                        {
+                            <div class="col">
+                                <div class="card h-100 shadow-sm border-0 pos-card cursor-pointer" @onclick="() => AddItemToSale(prod)">
+                                    <div class="position-relative bg-light border-bottom d-flex justify-content-center align-items-center" style="height: 120px; overflow:hidden;">
+                                        @if (!string.IsNullOrEmpty(prod.ImageUrl))
+                                        {
+                                            <img src="@prod.ImageUrl" class="w-100 h-100" style="object-fit: cover;" alt="@prod.Name">
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-box-seam fs-1 text-muted opacity-25"></i>
+                                        }
+                                        <div class="position-absolute bottom-0 end-0 p-1">
+                                            <span class="badge bg-dark bg-opacity-75">@prod.StockQuantity disp.</span>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-2 text-center d-flex flex-column justify-content-between">
+                                        <h6 class="card-title text-truncate small fw-bold mb-1" title="@prod.Name">@prod.Name</h6>
+                                        <span class="text-primary fw-bold">@prod.UnitPrice.ToString("C")</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-5 col-xl-4">
+                <div class="card shadow border-0 h-100 d-flex flex-column" style="border-radius: var(--radius-lg); background-color: #f8fafc;">
+                    
+                    <div class="p-3 bg-white border-bottom" style="border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
+                        <label class="form-label small text-muted fw-bold mb-1"><i class="bi bi-person me-1"></i> Cliente (Factura a:)</label>
+                        <select class="form-select bg-light" @bind="selectedClientId">
+                            <option value="">-- Consumidor Final (Seleccionar) --</option>
+                            @foreach (var client in clients)
+                            {
+                                <option value="@client.Id">@client.FirstName @client.LastName</option>
+                            }
+                        </select>
+                    </div>
+                    
+                    <div class="card-header bg-dark text-white fw-bold py-2 px-3 d-flex justify-content-between align-items-center border-0">
+                        <span><i class="bi bi-receipt me-2"></i> Ticket Actual</span>
+                    </div>
+                    
+                    <div class="card-body p-0 flex-grow-1 overflow-auto bg-white" style="min-height: 250px;">
+                        @if (!saleItems.Any())
+                        {
+                            <div class="text-center text-muted h-100 d-flex flex-column align-items-center justify-content-center py-5">
+                                <i class="bi bi-cart-dash fs-1 opacity-25 mb-2"></i>
+                                <span class="small">Haz clic en los productos<br>para agregarlos al ticket.</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <ul class="list-group list-group-flush">
+                                @foreach (var item in saleItems)
+                                {
+                                    <li class="list-group-item px-3 py-2 border-light-subtle">
+                                        <div class="d-flex justify-content-between align-items-start mb-1">
+                                            <div class="fw-bold text-dark lh-1 text-truncate pe-2">@item.ProductName</div>
+                                            <button class="btn btn-link text-danger p-0 ms-auto" style="line-height:1;" @onclick="() => RemoveItem(item.ProductId)">
+                                                <i class="bi bi-x-circle-fill"></i>
+                                            </button>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div class="input-group input-group-sm rounded border" style="width: 80px;">
+                                                <button class="btn btn-light px-2 border-end" @onclick="() => UpdateTicketQty(item, -1)"><i class="bi bi-dash"></i></button>
+                                                <input type="text" class="form-control text-center p-0 bg-transparent fw-bold" value="@item.Quantity" readonly>
+                                                <button class="btn btn-light px-2 border-start" @onclick="() => UpdateTicketQty(item, 1)"><i class="bi bi-plus"></i></button>
+                                            </div>
+                                            
+                                            <span class="fw-bold text-dark">@item.Total.ToString("C")</span>
+                                        </div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                    
+                    <div class="card-footer bg-white border-top border-2 pt-3 pb-3 px-4 shadow-sm" style="border-radius: 0 0 var(--radius-lg) var(--radius-lg); z-index: 10;">
+                        <div class="d-flex justify-content-between mb-1 small text-muted">
+                            <span>Subtotal</span>
+                            <span>@SubTotal.ToString("C")</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-3 small text-muted">
+                            <span>Impuestos</span>
+                            <span>@TaxAmount.ToString("C")</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-3 pb-2 border-bottom border-2">
+                            <span class="fs-4 fw-bold text-dark">Total</span>
+                            <span class="fs-3 fw-bold text-success">@TotalAmount.ToString("C")</span>
+                        </div>
+
+                        <button class="btn btn-success w-100 py-3 fw-bold fs-5 shadow" 
+                                @onclick="ProcessSale" 
+                                disabled="@(isProcessing || !saleItems.Any() || selectedClientId == Guid.Empty)">
+                            @if (isProcessing)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span> <span>Procesando...</span>
+                            }
+                            else
+                            {
+                                <span><i class="bi bi-cash-coin me-2"></i> COBRAR</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .pos-card {
+        transition: transform 0.1s ease, box-shadow 0.1s ease;
+        border: 2px solid transparent !important;
+    }
+    .pos-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-md) !important;
+        border-color: var(--brand-primary) !important;
+    }
+    .cursor-pointer { cursor: pointer; }
+    
+    /* Evitar que el panel derecho crezca infinitamente */
+    .h-100 { height: 100% !important; }
+</style>
+
+@code {
+    private bool isLoading = true;
+    private bool isProcessing = false;
+
+    private string? feedbackMessage;
+    private bool isSuccessFeedback;
+
+    private List<UserResponseDto> clients = new(); 
+    private List<ProductDto> activeProducts = new();
+    
+    private string productSearchTerm = "";
+    private string selectedCategory = "";
+
+    private Guid selectedClientId;
+    private List<PosItem> saleItems = new();
+
+    private decimal SubTotal => saleItems.Sum(x => x.SubTotal);
+    private decimal TaxAmount => saleItems.Sum(x => x.TaxAmount);
+    private decimal TotalAmount => saleItems.Sum(x => x.Total);
+
+    private IEnumerable<ProductDto> FilteredActiveProducts => activeProducts
+        .Where(p => string.IsNullOrWhiteSpace(productSearchTerm) || 
+                    p.Name.Contains(productSearchTerm, StringComparison.OrdinalIgnoreCase) || 
+                    p.SKU.Contains(productSearchTerm, StringComparison.OrdinalIgnoreCase))
+        .Where(p => string.IsNullOrWhiteSpace(selectedCategory) || 
+                    p.CategoryName == selectedCategory);
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        var prodTask = ProductService.GetAllAsync();
+        var userTask = UserService.GetAllAsync();
+
+        await Task.WhenAll(prodTask, userTask);
+
+        var prodResult = await prodTask;
+        if (prodResult.Success) activeProducts = prodResult.Data!.Where(p => p.IsActive && p.StockQuantity > 0).ToList();
+
+        var usersList = await userTask;
+        if (usersList != null) clients = usersList;
+
+        isLoading = false;
+    }
+
+    // Nuevo método: Agrega 1 unidad al hacer clic en la tarjeta
+    private void AddItemToSale(ProductDto product)
+    {
+        var existingItem = saleItems.FirstOrDefault(x => x.ProductId == product.Id);
+        int currentQty = existingItem?.Quantity ?? 0;
+
+        if (currentQty + 1 > product.StockQuantity)
+        {
+            ShowFeedback($"Stock máximo alcanzado ({product.StockQuantity})", false);
+            return;
+        }
+
+        if (existingItem != null)
+        {
+            existingItem.Quantity++;
+            existingItem.Recalculate();
+        }
+        else
+        {
+            var newItem = new PosItem
+            {
+                ProductId = product.Id,
+                ProductName = product.Name,
+                UnitPrice = product.UnitPrice,
+                TaxRate = product.TaxRate,
+                Quantity = 1,
+                MaxStock = product.StockQuantity
+            };
+            newItem.Recalculate();
+            saleItems.Add(newItem);
+        }
+    }
+
+    // Nuevo método: Cambiar cantidad desde el ticket (+ / -)
+    private void UpdateTicketQty(PosItem item, int change)
+    {
+        int newQty = item.Quantity + change;
+        
+        if (newQty <= 0) 
+        {
+            RemoveItem(item.ProductId);
+            return;
+        }
+        
+        if (newQty > item.MaxStock)
+        {
+            ShowFeedback("Stock insuficiente.", false);
+            return;
+        }
+
+        item.Quantity = newQty;
+        item.Recalculate();
+    }
+
+    private void RemoveItem(Guid productId)
+    {
+        var item = saleItems.FirstOrDefault(x => x.ProductId == productId);
+        if (item != null) saleItems.Remove(item);
+    }
+
+    private async Task ProcessSale()
+    {
+        if (selectedClientId == Guid.Empty || !saleItems.Any()) return;
+        isProcessing = true;
+
+        var dto = new CreateDirectInvoiceDto
+        {
+            ClientId = selectedClientId,
+            Items = saleItems.Select(i => new CreateDirectInvoiceItemDto
+            {
+                ProductId = i.ProductId,
+                Quantity = i.Quantity
+            }).ToList()
+        };
+
+        var result = await InvoiceService.CreateDirectInvoiceAsync(dto);
+
+        if (result.Success)
+        {
+            ShowFeedback("¡Factura generada exitosamente!", true);
+            saleItems.Clear();
+            selectedClientId = Guid.Empty;
+            
+            var prodResult = await ProductService.GetAllAsync();
+            if (prodResult.Success) activeProducts = prodResult.Data!.Where(p => p.IsActive && p.StockQuantity > 0).ToList();
+        }
+        else
+        {
+            ShowFeedback($"Error al facturar: {result.Error}", false);
+        }
+
+        isProcessing = false;
+    }
+
+    private void ShowFeedback(string msg, bool isSuccess)
+    {
+        feedbackMessage = msg;
+        isSuccessFeedback = isSuccess;
+        _ = Task.Delay(3000).ContinueWith(_ => {
+            feedbackMessage = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    public class PosItem
+    {
+        public Guid ProductId { get; set; }
+        public string ProductName { get; set; } = string.Empty;
+        public decimal UnitPrice { get; set; }
+        public decimal TaxRate { get; set; }
+        public int Quantity { get; set; }
+        public int MaxStock { get; set; } // Para validar límites en el ticket
+        
+        public decimal SubTotal { get; set; }
+        public decimal TaxAmount { get; set; }
+        public decimal Total { get; set; }
+
+        public void Recalculate()
+        {
+            SubTotal = UnitPrice * Quantity;
+            TaxAmount = SubTotal * TaxRate;
+            Total = SubTotal + TaxAmount;
+        }
+    }
+}

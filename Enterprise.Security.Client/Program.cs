@@ -48,5 +48,10 @@ builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 // Inventario
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IProductService, ProductService>();
+// Órdenes
+builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+// Módulo de Facturación
+builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 
 await builder.Build().RunAsync();
