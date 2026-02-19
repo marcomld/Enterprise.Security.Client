@@ -58,6 +58,13 @@
             public const string Approve = "Permissions.Orders.Approve"; // Supervisor
         }
 
+        public static class Invoices
+        {
+            public const string ViewAll = "Permissions.Invoices.ViewAll";       // Supervisor
+            public const string ViewMy = "Permissions.Invoices.ViewMy";         // Cliente
+            public const string CreateDirect = "Permissions.Invoices.CreateDirect"; // Vendedor (Venta Directa)
+                                                                                    // Nota: No hay "CreateFromOrder" porque eso lo hace el sistema automáticamente al aprobar.
+        }
 
         // Helper para obtener todos (útil para registrar policies en bucle)
         public static List<string> GetAll()
@@ -69,7 +76,8 @@
             Audits.View,
             Categories.View, Categories.Create, Categories.Edit, Categories.Delete,
             Products.View, Products.Create, Products.Edit, Products.Delete,
-            Orders.ViewAll, Orders.ViewMy, Orders.Create, Orders.Approve
+            Orders.ViewAll, Orders.ViewMy, Orders.Create, Orders.Approve,
+            Invoices.ViewAll, Invoices.ViewMy, Invoices.CreateDirect
         };
         }
     }
