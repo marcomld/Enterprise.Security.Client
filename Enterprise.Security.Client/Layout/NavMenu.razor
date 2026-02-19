@@ -16,20 +16,20 @@
 <div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
     <nav class="flex-column">
 
-        <AuthorizeView>
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                        <i class="bi bi-speedometer2 me-2"></i> Dashboard
-                    </NavLink>
-                </div>
-            </Authorized>
+        @* --- SOLO ADMIN: DASHBOARD --- *@
+        <AuthorizeView Roles="Admin">
+            <div class="nav-item px-3 mt-2">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <i class="bi bi-speedometer2 me-2"></i> Dashboard
+                </NavLink>
+            </div>
         </AuthorizeView>
 
+        @* --- SECCIÓN TIENDA (Para Clientes o cualquier logueado) --- *@
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item-header px-3 mt-3 mb-1 text-uppercase small text-muted fw-bold" style="font-size: 0.75rem;">
-                    Tienda
+                    Mi Tienda
                 </div>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="catalog">
@@ -46,42 +46,65 @@
                         <i class="bi bi-bag-check me-2"></i> Mis Pedidos
                     </NavLink>
                 </div>
-                <AuthorizeView Policy="@Permissions.Invoices.ViewMy" Context="innerContext">
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="my-invoices">
-                            <i class="bi bi-receipt me-2"></i> Mis Facturas
-                        </NavLink>
-                    </div>
-                </AuthorizeView>
             </Authorized>
         </AuthorizeView>
 
-        <AuthorizeView Policy="@Permissions.Orders.ViewAll">
+        <AuthorizeView Policy="@Permissions.Invoices.ViewMy">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="my-invoices">
+                    <i class="bi bi-receipt me-2"></i> Mis Facturas
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        @* --- SECCIÓN VENTAS (Para Supervisores y Vendedores) --- *@
+        <AuthorizeView Policy="@Permissions.Orders.Approve">
             <div class="nav-item-header px-3 mt-3 mb-1 text-uppercase small text-muted fw-bold" style="font-size: 0.75rem;">
-                Ventas
+                Ventas (B2B)
             </div>
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="manage-orders">
                     <i class="bi bi-clipboard-check me-2"></i> Gestión Pedidos
                 </NavLink>
             </div>
-            <AuthorizeView Policy="@Permissions.Invoices.ViewAll" Context="innerContext">
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="manage-invoices">
-                        <i class="bi bi-wallet2 me-2"></i> Ingresos / Facturas
-                    </NavLink>
-                </div>
-            </AuthorizeView>
-            <AuthorizeView Policy="@Permissions.Invoices.CreateDirect" Context="innerContext">
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="direct-sale">
-                        <i class="bi bi-shop-window me-2"></i> Punto de Venta
-                    </NavLink>
-                </div>
-            </AuthorizeView>
         </AuthorizeView>
 
-        <AuthorizeView Policy="@Permissions.Users.View">
+        <AuthorizeView Policy="@Permissions.Invoices.ViewAll">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="manage-invoices">
+                    <i class="bi bi-wallet2 me-2"></i> Ingresos / Facturas
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <AuthorizeView Policy="@Permissions.Invoices.CreateDirect">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="direct-sale">
+                    <i class="bi bi-shop-window me-2"></i> Punto de Venta
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        @* --- SECCIÓN INVENTARIO --- *@
+        <AuthorizeView Policy="@Permissions.Categories.Edit"> <div class="nav-item-header px-3 mt-3 mb-1 text-uppercase small text-muted fw-bold" style="font-size: 0.75rem;">
+                Inventario
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="categories">
+                    <i class="bi bi-folder me-2"></i> Categorías
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <AuthorizeView Policy="@Permissions.Products.Edit"> <div class="nav-item px-3">
+                <NavLink class="nav-link" href="products">
+                    <i class="bi bi-box-seam me-2"></i> Productos
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        @* --- SECCIÓN ADMINISTRACIÓN --- *@
+        <AuthorizeView Policy="@Permissions.Users.Edit">
             <div class="nav-item-header px-3 mt-3 mb-1 text-uppercase small text-muted fw-bold" style="font-size: 0.75rem;">
                 Administración
             </div>
@@ -100,25 +123,7 @@
             </div>
         </AuthorizeView>
 
-        <AuthorizeView Policy="@Permissions.Categories.View">
-            <div class="nav-item-header px-3 mt-3 mb-1 text-uppercase small text-muted fw-bold" style="font-size: 0.75rem;">
-                Inventario
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="categories">
-                    <i class="bi bi-folder me-2"></i> Categorías
-                </NavLink>
-            </div>
-        </AuthorizeView>
-
-        <AuthorizeView Policy="@Permissions.Products.View">
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="products">
-                    <i class="bi bi-box-seam me-2"></i> Productos
-                </NavLink>
-            </div>
-        </AuthorizeView>
-
+        @* --- SECCIÓN SISTEMA --- *@
         <AuthorizeView Policy="@Permissions.Audits.View">
             <div class="nav-item-header px-3 mt-3 mb-1 text-uppercase small text-muted fw-bold" style="font-size: 0.75rem;">
                 Sistema
@@ -135,11 +140,6 @@
 
 @code {
     private bool collapseNavMenu = true;
-
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
-    private void ToggleNavMenu()
-    {
-        collapseNavMenu = !collapseNavMenu;
-    }
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
 }
