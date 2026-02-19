@@ -33,6 +33,25 @@
             public const string Manage = "permissions.manage";
         }
 
+        // --- AGREGAR ESTO ---
+        public static class Categories
+        {
+            public const string View = "Permissions.Categories.View";
+            public const string Create = "Permissions.Categories.Create";
+            public const string Edit = "Permissions.Categories.Edit";
+            public const string Delete = "Permissions.Categories.Delete";
+        }
+
+        public static class Products
+        {
+            public const string View = "Permissions.Products.View";
+            public const string Create = "Permissions.Products.Create";
+            public const string Edit = "Permissions.Products.Edit";
+            public const string Delete = "Permissions.Products.Delete";
+        }
+
+
+
         // Helper para obtener todos (útil para registrar policies en bucle)
         public static List<string> GetAll()
         {
@@ -40,7 +59,9 @@
         {
             Users.View, Users.Create, Users.Edit, Users.Delete,
             Roles.View, Roles.Manage, Roles.Assign,
-            Audits.View
+            Audits.View,
+            Categories.View, Categories.Create, Categories.Edit, Categories.Delete,
+            Products.View, Products.Create, Products.Edit, Products.Delete
         };
         }
     }
