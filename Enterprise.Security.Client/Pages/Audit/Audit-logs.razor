@@ -279,7 +279,7 @@
     {
         // Default: Últimos 7 días
         dateFrom = DateTime.Today.AddDays(-7);
-        dateTo = DateTime.Today;
+        dateTo = DateTime.Today.AddDays(1);
         await LoadLogs();
     }
 
@@ -343,6 +343,9 @@
         if (action.Contains("update") || action.Contains("edit") || action.Contains("assign"))
             return "bg-primary-subtle text-primary border border-primary-subtle"; // Azul
 
+        if (action.Contains("adjust") || action.Contains("stock"))
+            return "bg-info-subtle text-info border border-info-subtle";
+
         return "bg-secondary-subtle text-secondary border border-secondary-subtle"; // Gris Default
     }
 
@@ -354,6 +357,7 @@
         if (action.Contains("create")) return "bi-plus-lg";
         if (action.Contains("delete")) return "bi-trash";
         if (action.Contains("update")) return "bi-pencil";
+        if (action.Contains("adjust") || action.Contains("stock")) return "bi-sliders";
         return "bi-activity";
     }
 

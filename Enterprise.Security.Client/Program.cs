@@ -6,14 +6,21 @@ using Enterprise.Security.Client.Infrastructure.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using System.Globalization;
+
+var culture = new CultureInfo("es-EC");
+
+CultureInfo.DefaultThreadCurrentCulture = culture;
+CultureInfo.DefaultThreadCurrentUICulture = culture;
+
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // 1. Configurar HttpClient para apuntar a TU API (ajusta el puerto según tu launchSettings del backend)
-//builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://localhost:7213") });
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://enterprisesecurity-e5cebaezaxc4debp.eastus-01.azurewebsites.net") });
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://localhost:7213") });
+//builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://enterprisesecurity-e5cebaezaxc4debp.eastus-01.azurewebsites.net") });
 
 // 2. Registrar nuestro LocalStorage Nativo
 builder.Services.AddScoped<ILocalStorageService, LocalStorageService>();
@@ -38,5 +45,8 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IClientAuthService, ClientAuthService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+// Inventario
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IProductService, ProductService>();
 
 await builder.Build().RunAsync();
