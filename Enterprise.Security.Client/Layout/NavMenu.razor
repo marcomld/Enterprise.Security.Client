@@ -23,7 +23,33 @@
                         <i class="bi bi-speedometer2 me-2"></i> Dashboard
                     </NavLink>
                 </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="catalog">
+                        <span class="bi bi-shop" aria-hidden="true"></span> Catálogo
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="cart">
+                        <span class="bi bi-cart3" aria-hidden="true"></span> Carrito
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="my-orders">
+                        <span class="bi bi-bag-check" aria-hidden="true"></span> Mis Pedidos
+                    </NavLink>
+                </div>
             </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Policy="@Permissions.Orders.ViewAll">
+            <div class="nav-item-header px-3 mt-3 mb-1 text-uppercase small text-muted fw-bold" style="font-size: 0.75rem;">
+                Ventas
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="manage-orders">
+                    <span class="bi bi-clipboard-check" aria-hidden="true"></span> Gestión Pedidos
+                </NavLink>
+            </div>
         </AuthorizeView>
 
         <AuthorizeView Policy="@Permissions.Users.View">

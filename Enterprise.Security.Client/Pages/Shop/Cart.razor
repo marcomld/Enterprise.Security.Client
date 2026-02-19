@@ -1,0 +1,271 @@
+﻿@page "/cart"
+@using Enterprise.Security.Client.Core.DTOs.Orders
+@using Enterprise.Security.Client.Core.Interfaces
+@inject ICartService CartService
+@inject IOrderService OrderService
+@inject NavigationManager Navigation
+
+<div class="container-fluid py-4">
+    <div class="d-flex align-items-center mb-4 gap-3">
+        <h2 class="fw-bold text-dark mb-0">Mi Carrito</h2>
+        @if (cartItems.Any())
+        {
+            <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2 fs-6">
+                @cartItems.Sum(i => i.Quantity) artículos
+            </span>
+        }
+    </div>
+
+    @if (!cartItems.Any())
+    {
+        <div class="card border-0 shadow-sm" style="border-radius: var(--radius-lg);">
+            <div class="card-body text-center py-5">
+                <div class="mb-4">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle" style="width: 100px; height: 100px;">
+                        <i class="bi bi-cart-x text-muted" style="font-size: 3rem;"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold text-dark">Tu carrito está vacío</h4>
+                <p class="text-muted mb-4">Parece que aún no has agregado productos a tu pedido.</p>
+                <a href="catalog" class="btn btn-primary px-4 py-2 shadow-sm d-inline-flex align-items-center gap-2">
+                    <i class="bi bi-shop"></i> Explorar Catálogo
+                </a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card shadow-sm border-0" style="border-radius: var(--radius-lg);">
+                    <div class="card-header bg-white border-bottom-0 pt-4 px-4 pb-2">
+                        <h5 class="fw-bold text-dark mb-0">Artículos Seleccionados</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <ul class="list-group list-group-flush">
+                            @foreach (var item in cartItems)
+                            {
+                                <li class="list-group-item p-4 border-light-subtle">
+                                    <div class="row align-items-center">
+
+                                        <div class="col-md-5 d-flex align-items-center mb-3 mb-md-0">
+                                            <div class="rounded-3 bg-light border d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+                                                 style="width: 70px; height: 70px; overflow: hidden;">
+                                                @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                                {
+                                                    <img src="@item.ImageUrl" alt="@item.ProductName" style="width: 100%; height: 100%; object-fit: cover;">
+                                                }
+                                                else
+                                                {
+                                                    <i class="bi bi-box-seam text-secondary fs-3"></i>
+                                                }
+                                            </div>
+                                            <div>
+                                                <h6 class="fw-bold text-dark mb-1">@item.ProductName</h6>
+                                                <div class="small text-muted font-monospace mb-1">SKU: @item.ProductSku</div>
+                                                <div class="text-primary fw-bold">@item.UnitPrice.ToString("C") <span class="text-muted fw-normal small">/u</span></div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-6 col-md-4">
+                                            <div class="d-flex flex-column align-items-start align-items-md-center">
+                                                <div class="input-group input-group-sm bg-light rounded-pill border p-1" style="width: 120px;">
+                                                    <button class="btn btn-link text-dark border-0 px-2 py-0 text-decoration-none"
+                                                            @onclick="() => UpdateQty(item, -1)">
+                                                        <i class="bi bi-dash-lg"></i>
+                                                    </button>
+                                                    <input type="text" class="form-control text-center bg-transparent border-0 fw-bold px-0"
+                                                           value="@item.Quantity" readonly />
+                                                    <button class="btn btn-link text-dark border-0 px-2 py-0 text-decoration-none"
+                                                            @onclick="() => UpdateQty(item, 1)"
+                                                            disabled="@(item.Quantity >= item.MaxStock)">
+                                                        <i class="bi bi-plus-lg"></i>
+                                                    </button>
+                                                </div>
+                                                @if (item.Quantity >= item.MaxStock)
+                                                {
+                                                    <small class="text-warning mt-1" style="font-size: 0.7rem;"><i class="bi bi-exclamation-triangle"></i> Límite de stock</small>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <div class="col-6 col-md-3 d-flex justify-content-end align-items-center">
+                                            <div class="text-end me-3">
+                                                <span class="d-block text-muted small lh-1">Subtotal</span>
+                                                <span class="fs-5 fw-bold text-dark">@item.SubTotal.ToString("C")</span>
+                                            </div>
+                                            <button class="btn btn-sm btn-action-subtle btn-danger-subtle ms-2"
+                                                    @onclick="() => RemoveItem(item.ProductId)" title="Quitar producto">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card shadow-sm border-0 sticky-top" style="top: 80px; border-radius: var(--radius-lg);">
+                    <div class="card-body p-4">
+                        <h5 class="fw-bold text-dark mb-4">Resumen del Pedido</h5>
+
+                        <div class="d-flex justify-content-between mb-3 text-muted">
+                            <span>Subtotal (@cartItems.Sum(i => i.Quantity) items)</span>
+                            <span class="fw-semibold text-dark">@cartItems.Sum(i => i.SubTotal).ToString("C")</span>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-3 text-muted">
+                            <span>Impuestos (Estimado 15%)</span>
+                            <span class="fw-semibold text-dark">@((cartItems.Sum(i => i.SubTotal) * 0.15m).ToString("C"))</span>
+                        </div>
+
+                        <hr class="border-light-subtle my-3">
+
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <span class="fs-5 fw-bold text-dark">Total</span>
+                            <span class="fs-3 fw-bold text-primary">
+                                @((cartItems.Sum(i => i.SubTotal) * 1.15m).ToString("C"))
+                            </span>
+                        </div>
+
+                        <div class="form-floating mb-4">
+                            <textarea class="form-control bg-light" id="orderNotes" style="height: 80px" @bind="orderNotes" placeholder="Instrucciones..."></textarea>
+                            <label for="orderNotes" class="text-muted">Notas especiales (Opcional)</label>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger small py-2 px-3 mb-3 d-flex align-items-center">
+                                <i class="bi bi-exclamation-circle-fill me-2"></i> @errorMessage
+                            </div>
+                        }
+
+                        <button class="btn btn-primary w-100 py-3 fw-bold shadow-sm d-flex justify-content-center align-items-center gap-2"
+                                @onclick="PlaceOrder" disabled="@isProcessing">
+                            @if (isProcessing)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                                <span>Procesando Pedido...</span>
+                            }
+                            else
+                            {
+                                <span>Confirmar y Enviar Pedido</span>
+                                <i class="bi bi-arrow-right"></i>
+                            }
+                        </button>
+
+                        <div class="text-center mt-3">
+                            <a href="catalog" class="text-decoration-none text-muted small d-inline-flex align-items-center gap-1 hover-primary">
+                                <i class="bi bi-arrow-left"></i> Seguir comprando
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    /* Estilos locales para botones sutiles (Reutilizados del estándar) */
+    .btn-action-subtle {
+        border: none;
+        width: 36px;
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.375rem;
+        transition: all 0.2s;
+    }
+
+    .btn-danger-subtle {
+        background-color: #fee2e2;
+        color: #ef4444;
+    }
+
+        .btn-danger-subtle:hover {
+            background-color: #dc2626;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+    .hover-primary:hover {
+        color: var(--brand-accent) !important;
+        text-decoration: underline !important;
+    }
+
+    .btn-white {
+        background-color: #fff;
+    }
+</style>
+
+@code {
+    private List<CartItem> cartItems = new();
+    private string orderNotes = "";
+    private bool isProcessing = false;
+    private string? errorMessage; // Para mostrar errores en la UI en vez de la consola
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CartService.InitializeCart();
+        cartItems = CartService.CurrentItems;
+
+        CartService.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        CartService.OnChange -= StateHasChanged;
+    }
+
+    private async Task RemoveItem(Guid id)
+    {
+        await CartService.RemoveFromCart(id);
+        cartItems = CartService.CurrentItems;
+    }
+
+    private async Task PlaceOrder()
+    {
+        isProcessing = true;
+        errorMessage = null;
+
+        var orderDto = new CreateOrderDto
+        {
+            Notes = orderNotes,
+            Items = cartItems.Select(i => new CreateOrderItemDto
+            {
+                ProductId = i.ProductId,
+                Quantity = i.Quantity
+            }).ToList()
+        };
+
+        var result = await OrderService.CreateOrderAsync(orderDto);
+
+        if (result.Success)
+        {
+            await CartService.ClearCart();
+            Navigation.NavigateTo("/my-orders");
+        }
+        else
+        {
+            errorMessage = result.Error ?? "Hubo un problema al procesar tu orden. Revisa el inventario.";
+            isProcessing = false;
+        }
+    }
+
+    private async Task UpdateQty(CartItem item, int change)
+    {
+        int newQty = item.Quantity + change;
+
+        if (newQty < 1) return;
+        if (newQty > item.MaxStock) return;
+
+        await CartService.UpdateQuantity(item.ProductId, newQty);
+        cartItems = CartService.CurrentItems;
+    }
+}

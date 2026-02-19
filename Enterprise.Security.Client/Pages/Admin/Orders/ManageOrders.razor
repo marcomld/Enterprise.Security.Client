@@ -1,0 +1,381 @@
+﻿@page "/manage-orders"
+@using Enterprise.Security.Client.Core.DTOs.Orders
+@using Enterprise.Security.Client.Core.Interfaces
+@using Enterprise.Security.Client.Core.Common
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = Permissions.Orders.ViewAll)]
+@inject IOrderService OrderService
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-end mb-4">
+        <div>
+            <h2 class="fw-bold text-dark mb-1">Gestión de Pedidos</h2>
+            <p class="text-muted mb-0">Supervisa, aprueba y despacha las órdenes entrantes.</p>
+        </div>
+
+        <div class="bg-light p-1 rounded-pill border d-inline-flex">
+            <button class="btn btn-sm rounded-pill px-4 fw-medium @(filterStatus == "Pending" ? "btn-white shadow-sm text-dark" : "text-muted border-0")"
+                    @onclick='() => SetFilter("Pending")'>
+                Pendientes
+            </button>
+            <button class="btn btn-sm rounded-pill px-4 fw-medium @(filterStatus == "Approved" ? "btn-white shadow-sm text-dark" : "text-muted border-0")"
+                    @onclick='() => SetFilter("Approved")'>
+                Aprobados
+            </button>
+            <button class="btn btn-sm rounded-pill px-4 fw-medium @(filterStatus == "All" ? "btn-white shadow-sm text-dark" : "text-muted border-0")"
+                    @onclick='() => SetFilter("All")'>
+                Todos
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(feedbackMessage))
+    {
+        <div class="alert @(isSuccessFeedback ? "alert-success" : "alert-danger") alert-dismissible fade show shadow-sm border-0 mb-4" role="alert">
+            <i class="bi @(isSuccessFeedback ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill") me-2"></i>
+            @feedbackMessage
+            <button type="button" class="btn-close" @onclick="() => feedbackMessage = null"></button>
+        </div>
+    }
+
+    <div class="card border-0 shadow-sm overflow-hidden" style="border-radius: var(--radius-lg);">
+        @if (isLoading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted fw-medium">Sincronizando órdenes...</p>
+            </div>
+        }
+        else if (!FilteredOrders.Any())
+        {
+            <div class="text-center py-5">
+                <i class="bi bi-inbox text-muted opacity-25 display-1 mb-3 d-block"></i>
+                <h5 class="text-muted">No hay órdenes en esta categoría</h5>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-uppercase small text-muted fw-bold">
+                        <tr>
+                            <th class="ps-4 py-3 border-0">Orden #</th>
+                            <th class="py-3 border-0">Cliente / Fecha</th>
+                            <th class="py-3 border-0">Total</th>
+                            <th class="py-3 border-0">Estado</th>
+                            <th class="text-end pe-4 py-3 border-0">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in FilteredOrders)
+                        {
+                            <tr class="border-bottom-0">
+                                <td class="ps-4 fw-bold font-monospace text-dark">
+                                    @order.OrderNumber
+                                    @if (!string.IsNullOrEmpty(order.Notes))
+                                    {
+                                        <i class="bi bi-chat-text-fill text-warning ms-1" title="Contiene notas"></i>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="fw-semibold text-dark">Cliente #@order.Id.ToString().Substring(0, 4)</div>
+                                    <div class="small text-muted">@order.OrderDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                                </td>
+                                <td class="fw-bold text-primary">@order.TotalAmount.ToString("C")</td>
+                                <td>
+                                    <span class="badge @GetStatusBadgeClass(order.Status) rounded-pill px-3">
+                                        @TranslateStatus(order.Status)
+                                    </span>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <div class="d-flex justify-content-end gap-2">
+                                        <button class="btn btn-sm btn-action-subtle btn-secondary-subtle" @onclick="() => ShowDetails(order)" title="Ver Detalles">
+                                            <i class="bi bi-eye-fill"></i>
+                                        </button>
+
+                                        @if (order.Status == "Pending")
+                                        {
+                                            <AuthorizeView Policy="@Permissions.Orders.Approve">
+                                                <button class="btn btn-sm btn-action-subtle btn-success-subtle" @onclick="() => PromptApprove(order)" title="Aprobar Orden">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </button>
+                                            </AuthorizeView>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@if (selectedOrder != null)
+{
+    <div class="modal fade show d-block backdrop-blur" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0 rounded-4">
+                <div class="modal-header border-bottom-0 bg-light pb-3">
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-1">Supervisión de Orden</h5>
+                        <div class="small text-muted font-monospace">#@selectedOrder.OrderNumber</div>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="() => selectedOrder = null"></button>
+                </div>
+                <div class="modal-body p-4">
+
+                    <div class="row mb-4 g-3">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded-3 border h-100">
+                                <span class="d-block small text-muted text-uppercase fw-bold mb-1">Estado</span>
+                                <span class="badge @GetStatusBadgeClass(selectedOrder.Status) fs-6">@TranslateStatus(selectedOrder.Status)</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded-3 border h-100 text-end">
+                                <span class="d-block small text-muted text-uppercase fw-bold mb-1">Total a Cobrar</span>
+                                <span class="fs-4 fw-bold text-primary">@selectedOrder.TotalAmount.ToString("C")</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(selectedOrder.Notes))
+                    {
+                        <div class="alert bg-warning-subtle text-dark border-warning-subtle d-flex align-items-start gap-3 mb-4">
+                            <i class="bi bi-exclamation-circle-fill fs-4 text-warning"></i>
+                            <div>
+                                <h6 class="fw-bold mb-1">Nota del Cliente:</h6>
+                                <p class="mb-0 small">@selectedOrder.Notes</p>
+                            </div>
+                        </div>
+                    }
+
+                    <h6 class="text-uppercase text-muted small fw-bold mb-3">Desglose de Artículos (@selectedOrder.TotalItems)</h6>
+                    <div class="table-responsive border rounded-3 mb-4">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="bg-light text-muted">
+                                <tr>
+                                    <th class="ps-3 border-0 py-2">Producto</th>
+                                    <th class="text-center border-0 py-2">Cant.</th>
+                                    <th class="text-end border-0 py-2">Precio</th>
+                                    <th class="text-end pe-3 border-0 py-2">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in selectedOrder.Items)
+                                {
+                                    <tr class="border-top">
+                                        <td class="ps-3 fw-medium">@item.ProductName</td>
+                                        <td class="text-center">@item.Quantity</td>
+                                        <td class="text-end text-muted small">@item.UnitPrice.ToString("C")</td>
+                                        <td class="text-end pe-3 fw-bold">@item.Total.ToString("C")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 pb-4 px-4 bg-light">
+                    @if (selectedOrder.Status == "Pending")
+                    {
+                        <AuthorizeView Policy="@Permissions.Orders.Approve">
+                            <button class="btn btn-success shadow-sm px-4 d-flex align-items-center gap-2" @onclick="() => PromptApprove(selectedOrder)">
+                                <i class="bi bi-check-circle-fill"></i> Aprobar Orden
+                            </button>
+                        </AuthorizeView>
+                    }
+                    <button class="btn btn-secondary px-4" @onclick="() => selectedOrder = null">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (orderToApprove != null)
+{
+    <div class="modal fade show d-block backdrop-blur" tabindex="-1" style="z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content shadow rounded-4 border-0">
+                <div class="modal-body text-center p-4">
+                    <div class="mb-3">
+                        <div class="rounded-circle bg-success-subtle text-success d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                            <i class="bi bi-check2-all fs-2"></i>
+                        </div>
+                    </div>
+                    <h5 class="fw-bold">¿Aprobar Orden?</h5>
+                    <p class="text-muted small mb-1">
+                        Orden <strong>#@orderToApprove.OrderNumber</strong>
+                    </p>
+                    <p class="text-danger small fw-medium">
+                        Esto descontará el stock del inventario permanentemente.
+                    </p>
+                    <div class="d-grid gap-2 mt-4">
+                        <button class="btn btn-success shadow-sm" @onclick="ExecuteApprove" disabled="@isProcessing">
+                            @(isProcessing ? "Procesando..." : "Sí, Aprobar")
+                        </button>
+                        <button class="btn btn-link text-decoration-none text-muted btn-sm" @onclick="() => orderToApprove = null" disabled="@isProcessing">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .backdrop-blur {
+        background-color: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+    }
+
+    .btn-white {
+        background-color: #fff;
+    }
+
+    /* Botones de acción tabla */
+    .btn-action-subtle {
+        border: none;
+        width: 34px;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.375rem;
+        transition: all 0.2s;
+    }
+
+    .btn-secondary-subtle {
+        background-color: #f1f5f9;
+        color: #475569;
+    }
+
+        .btn-secondary-subtle:hover {
+            background-color: #334155;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+    .btn-success-subtle {
+        background-color: #dcfce7;
+        color: #15803d;
+    }
+
+        .btn-success-subtle:hover {
+            background-color: #16a34a;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+    /* Badges Subtle para estados */
+    .bg-warning-subtle {
+        background-color: #fef3c7;
+        color: #b45309;
+    }
+
+    .border-warning-subtle {
+        border-color: #fde68a;
+    }
+
+    .bg-danger-subtle {
+        background-color: #fee2e2;
+        color: #b91c1c;
+    }
+</style>
+
+@code {
+    private List<OrderResponseDto> allOrders = new();
+    private bool isLoading = true;
+    private bool isProcessing = false;
+    private string filterStatus = "Pending";
+
+    private OrderResponseDto? selectedOrder;
+    private OrderResponseDto? orderToApprove;
+
+    // Feedback
+    private string? feedbackMessage;
+    private bool isSuccessFeedback;
+
+    private IEnumerable<OrderResponseDto> FilteredOrders =>
+        filterStatus == "All"
+        ? allOrders.OrderByDescending(x => x.OrderDate)
+        : allOrders.Where(x => x.Status == filterStatus).OrderByDescending(x => x.OrderDate);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrders();
+    }
+
+    private async Task LoadOrders()
+    {
+        isLoading = true;
+        var result = await OrderService.GetAllOrdersAsync();
+        if (result.Success)
+        {
+            allOrders = result.Data!;
+        }
+        isLoading = false;
+    }
+
+    private void SetFilter(string status) { filterStatus = status; }
+
+    private async Task ShowDetails(OrderResponseDto order)
+    {
+        var result = await OrderService.GetOrderByIdAsync(order.Id);
+        if (result.Success) selectedOrder = result.Data;
+    }
+
+    private void PromptApprove(OrderResponseDto order)
+    {
+        orderToApprove = order;
+    }
+
+    private async Task ExecuteApprove()
+    {
+        if (orderToApprove == null) return;
+        isProcessing = true;
+
+        var result = await OrderService.ApproveOrderAsync(orderToApprove.Id);
+
+        if (result.Success)
+        {
+            feedbackMessage = $"Orden #{orderToApprove.OrderNumber} aprobada con éxito.";
+            isSuccessFeedback = true;
+
+            // Cerrar modales y recargar
+            orderToApprove = null;
+            selectedOrder = null;
+            await LoadOrders();
+        }
+        else
+        {
+            feedbackMessage = $"Error al aprobar: {result.Error}";
+            isSuccessFeedback = false;
+        }
+        isProcessing = false;
+    }
+
+    // Helpers Visuales
+    private string GetStatusBadgeClass(string status)
+    {
+        return status.ToLower() switch
+        {
+            "pending" => "bg-warning-subtle text-warning border border-warning-subtle",
+            "approved" => "bg-success-subtle text-success border border-success-subtle",
+            "rejected" or "cancelled" => "bg-danger-subtle text-danger border border-danger-subtle",
+            _ => "bg-secondary-subtle text-secondary border border-secondary-subtle"
+        };
+    }
+
+    private string TranslateStatus(string status)
+    {
+        return status.ToLower() switch
+        {
+            "pending" => "Pendiente",
+            "approved" => "Aprobado",
+            "rejected" => "Rechazado",
+            "cancelled" => "Cancelado",
+            _ => status
+        };
+    }
+}

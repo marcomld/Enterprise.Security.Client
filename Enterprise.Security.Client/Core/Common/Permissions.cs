@@ -50,6 +50,13 @@
             public const string Delete = "Permissions.Products.Delete";
         }
 
+        public static class Orders
+        {
+            public const string ViewAll = "Permissions.Orders.ViewAll"; // Supervisor
+            public const string ViewMy = "Permissions.Orders.ViewMy";   // Cliente
+            public const string Create = "Permissions.Orders.Create";   // Cliente
+            public const string Approve = "Permissions.Orders.Approve"; // Supervisor
+        }
 
 
         // Helper para obtener todos (útil para registrar policies en bucle)
@@ -61,7 +68,8 @@
             Roles.View, Roles.Manage, Roles.Assign,
             Audits.View,
             Categories.View, Categories.Create, Categories.Edit, Categories.Delete,
-            Products.View, Products.Create, Products.Edit, Products.Delete
+            Products.View, Products.Create, Products.Edit, Products.Delete,
+            Orders.ViewAll, Orders.ViewMy, Orders.Create, Orders.Approve
         };
         }
     }
